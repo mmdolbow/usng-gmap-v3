@@ -1,0 +1,83 @@
+html { 
+	height: 100%
+	}
+
+body {
+	height: 100%; 
+	margin: 0; 
+	padding: 0
+	}
+
+#map_canvas { 
+	height: 100% 
+}
+
+/*Entire Search Box */
+#usng_search {
+    height: auto;
+    position: absolute;
+    left: 25%; /*these positions absolute? */
+    bottom: 5%;
+    min-width:50%; /*this makes the div size to the page */
+    padding: 2%;
+    font-size:100%;
+    visibility: visible;
+    z-index: 50;
+    /*rounded corners below */
+    background-color:#c7d4e1;
+    -moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px; /* future proofing - end rounded corners */
+}
+
+#inputUSNGTxt,#inputAddrTxt {
+	min-width:40%;
+}
+
+#rdoUSNG,#inputUSNGTxt {
+	float:right;
+	margin:-10px 0 0 0;
+}
+
+#rdoAdd,#inputAddrTxt {
+	float:left;
+	margin:-10px 0 0 0;
+}
+
+#rdoAdd,#rdoUSNG {
+	padding:5px 0 0 0;
+}
+	
+input[type=submit]{
+	display:block;
+	position:absolute;
+	margin-left:40%;
+	margin-right:40%;
+}
+
+#zonecheckbox,#grid100kcheckbox,#grid1kcheckbox,#grid100mcheckbox {
+	width: 20%;
+	height:10px;
+	font-size:.9em;
+	padding:10px 0 0 0;
+	vertical-align: middle;
+}
+
+/*MIGHT DECIDE AGAINST USING THESE */
+#searchAddLaunch,#searchUSNGLaunch {
+    height: auto;
+    position: absolute;
+    left: 7%; /*these positions absolute? */
+    top: 5%;
+    /*min-width:15%; this makes the div size to the page */
+    padding: 5px;
+    font-size:120%;
+    visibility: visible;
+    z-index: 40;
+    /*rounded corners below */
+    background-color:#c7d4e1;
+    -moz-border-radius: 10px;
+	-webkit-border-radius: 10px;
+	border-radius: 10px; /* future proofing - end rounded corners */
+
+}
