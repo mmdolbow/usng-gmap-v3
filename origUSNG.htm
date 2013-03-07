@@ -1,0 +1,125 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns:v="urn:schemas-microsoft-com:vml">
+
+<!--
+
+// ****************************************************************************/
+//
+// Copyright (c) 2009 Larry Moore, larmoor@gmail.com
+// Released under the MIT License 
+// http://www.opensource.org/licenses/mit-license.php 
+// http://en.wikipedia.org/wiki/MIT_License
+//
+// Permission is hereby granted, free of charge, to any person
+// obtaining a copy of this software and associated documentation
+// files (the "Software"), to deal in the Software without
+// restriction, including without limitation the rights to use,
+// copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following
+// conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+// OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+// HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+// WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+// OTHER DEALINGS IN THE SOFTWARE.
+//
+//
+//*****************************************************************************
+
+-->
+
+
+<head>
+
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<title>USNG</title>
+<link href="css.css" type="text/css" rel="stylesheet">
+<script src="http://maps.google.com/maps?file=api&amp;v=3&amp;
+key=ABQIAAAAC3rgTlgNpP2V8gBh49wGDhS1hJpEbBv4qAKqn7FS4rf6aT3RFxRwSWasxYr7n_AU4O5BjRRKTUI3Fw"
+type="text/javascript"></script>
+
+<script type="text/javascript" src="gridlines.js"></script>
+<script type="text/javascript" src="markers.js"></script>
+<script type="text/javascript" src="usng.js"></script>
+<script type="text/javascript" src="search.js"></script>
+<script type="text/javascript" src="startup.js"></script>
+<script type="text/javascript" src="labeledmarker.js"></script>
+<script type="text/javascript" src="gars.js"></script>
+<script type="text/javascript" src="garslines.js"></script>
+<script type="text/javascript" src="nad27.js"></script>
+
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-2038927-14']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+
+</head>
+
+<body onunload="GUnload()">
+   <table>
+     <td><h1>U.S. National Grid</h1></td>
+     <td><h2>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="help_usng.html" target=_blank>Information about this application and the USNG</a></h2></td>
+   </table>
+
+   <noscript>
+      <div style="border: solid 2px #cc0000; padding: 5px; width: 70%; margin: 1em auto;">
+           I'm afraid that this page requires JavaScript to interface with Google Maps
+      </div>
+   </noscript>
+
+   <!-- form entry for search and directions, plus buttons -->
+   <form name='inputboxes'>
+   <table>
+     <tr>
+       <!-- content for search_label, search_input, and search_type added dynamically -->
+       <td id="search_label" width="80"></td>
+       <td id="search_input"></td>
+       <td id="zonecheckbox"></td>
+       <td id="grid100kcheckbox"></td>
+       <td id="grid1kcheckbox"></td>
+       <td id="grid100mcheckbox"></td>
+       <td id="dummy">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+       <td id="cellcheckbox"></td>
+     </tr>
+   </table>
+   <table>
+     <tr>
+       <td id="" width="80"></td>
+       <td id="search_type"></td>
+      <!-- td id="_coords" style="background: #ffffff; border: dashed 1px #ffffff;" -->
+       <td id="_coords"></td>
+     </tr>
+   </table>
+   </form>
+
+  <div id="map">
+      <div style="padding: 1em; color: gray;">Loading...
+      </div>
+  </div>
+  <div id="loading"></div>
+  <div id="info"></div>
+
+  <script type="text/javascript"> load(); 
+//  alert("This US National Grid application will soon move to \nhttp://dhost.info/usngweb\nPlease update your links and bookmarks.")</script>
+
+  
+</body>
+</html>
