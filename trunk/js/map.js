@@ -41,6 +41,7 @@
  * 7. Form that kicks off the search depending on the type; need the radio buttons in p tags in order to work AND style properly
  * 8. Attempt at a map click listener for a reverse geocode...needs work
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
+ * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 
  * NEEDS:
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
@@ -54,8 +55,9 @@
  * 4. An examination into click listener for the reverse geocode, why would event.latlng be undefined? Is it because the map isn't created yet?
  * 		All examples seem to put similar listeners in the same initialize function.
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
- * 6.
- */
+ * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
+ * 7. A new marker when a USNG search is performed
+ * */
 
 
 var map,geocoder;
@@ -82,7 +84,7 @@ function initialize() {
     var inputAddrTxt = document.getElementById('inputAddrTxt');
 	
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
-	document.getElementById('inputUSNGTxt').disabled=true;
+	//document.getElementById('inputUSNGTxt').disabled=true;
 	
   	google.maps.event.addListener(map, 'click', function(event) {
 	 	//console.log("Running a reverse geocode at:"+event.latlng.lat()+", "+event.latlng.lng());
@@ -106,6 +108,7 @@ function startSearch(addrTxt,USNGTxt) {
 	if (searchType === "address") {
 		codeAddress(addrTxt); 
 	} else {
+		//console.log("Searching on USNG: "+USNGTxt);
 		convUSNG(USNGTxt);
 	}
 	//switchUIMode(1);
@@ -118,14 +121,19 @@ function setSearchType(radiotype) {
 	searchType = radiotype;
 	if (searchType === "usng"){
 		console.log("Switching to the USNG Search Type.");
-		//Disable the address input
-		document.getElementById('inputAddrTxt').disabled=true;
-		document.getElementById('inputUSNGTxt').disabled=false;
+		//Disable the address input - but then you can't click in it to activate it!
+		//document.getElementById('inputAddrTxt').disabled=true;
+		//document.getElementById('inputUSNGTxt').disabled=false;
+		//make sure the USNG radio button is selected
+		document.getElementById('radioUSNG').checked = true;
+		
 	} else {
 		console.log("Switching to the Address Search Type.");
-		//disable the USNG input
-		document.getElementById('inputUSNGTxt').disabled=true;
-		document.getElementById('inputAddrTxt').disabled=false;
+		//disable the USNG input - but then you can't click in it to activate it!
+		//document.getElementById('inputUSNGTxt').disabled=true;
+		//document.getElementById('inputAddrTxt').disabled=false;
+		//make sure the Address radio button is selected
+		document.getElementById('radioAddress').checked = true;
 	}
 }
 
@@ -147,8 +155,32 @@ function codeAddress(addrTxt) {
   
 function convUSNG(txt) {
 	console.log("Let's try to convert USNG: "+txt);
-	var foundLL = usngfunc.toLonLat(txt,null);
-	console.log("OK, that USNG translates to: "+foundLL);
+	var usngZlev = null;
+	try {
+		var foundLLobj = usngfunc.toLonLat(txt,null);
+	}
+	catch(err)
+	{
+		alert(err);
+		return null;
+	}
+	console.log("Lat long components are: Precision - "+foundLLobj.precision+" Lat:"+foundLLobj.lat+" Long:"+foundLLobj.lon);
+	
+	//need best way to get a zoom level based on the returned precision
+    //trying to get to 0 = 100km, 1 = 10km, 2 = 1km, 3 = 100m, 4 = 10m, 5 = 1m, ...
+	//This is a crude way to do this, just like in when we go from precision to zoom level
+        if (foundLLobj.precision===0) {usngZlev=6;}
+			else if (foundLLobj.precision===1) {usngZlev=10;}
+			else if (foundLLobj.precision===2) {usngZlev=12;}
+			else if (foundLLobj.precision===3) {usngZlev=14;}
+			else if (foundLLobj.precision===4) {usngZlev=16;}
+			else if (foundLLobj.precision===5) {usngZlev=18;}
+			else {usngZlev=21;}
+	
+	map.setZoom(usngZlev);
+	console.log("New zoom level is: "+usngZlev);
+	var foundLatLng = new google.maps.LatLng(foundLLobj.lat,foundLLobj.lon);
+	map.setCenter(foundLatLng);
 }
 
 //do a reverse geocode on a clicked point (or dragged marker?)
