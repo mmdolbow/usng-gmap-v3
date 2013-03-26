@@ -34,7 +34,7 @@
     	<form method="post" name="frmSearch" action="javascript:startSearch(this.inputAddrTxt.value,this.inputUSNGTxt.value);">
 		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" onclick="setSearchType('address');" placeholder="Enter an address"/>
 		  <input type="text" id="inputUSNGTxt" name="inputUSNGTxt" onclick="setSearchType('usng');" placeholder="Enter a USNG value"/><br />
-		  <input type="submit" name="searchButton" value="Search"/>
+		  <input type="submit" id="btnSearch" name="searchButton" value="Search"/>
 		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address</p>
 		  <p id="rdoUSNG"><input id="radioUSNG" type="radio" name="searchtype" onclick="setSearchType('usng');" value="USNG"/>USNG</p> <br />
 		  <div id="zonecheckbox"><input type="checkbox" name="zonelines" onclick="toggleZoneDisp();" />Zones</div>
