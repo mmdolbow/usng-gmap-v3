@@ -39,7 +39,7 @@
  * 5. Default search type is address.
  * 6. Radio buttons that behave and switch search types appropriately
  * 7. Form that kicks off the search depending on the type; need the radio buttons in p tags in order to work AND style properly
- * 8. Attempt at a map click listener for a reverse geocode...needs work
+ * 8. Map click listener for a reverse geocode
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 
@@ -52,8 +52,7 @@
  *    coordinate code, and upgrade some other functions. Keep in mind this app includes the ability to drop multiple markers
  *    and to delete them from their infowindows. So creating a single marker is probably not the best approach.
  * 3. Autocomplete JSON for USNG values? Nahh...this would require jQuery or Dojo for the autocomplete.
- * 4. An examination into click listener for the reverse geocode, why would event.latlng be undefined? Is it because the map isn't created yet?
- * 		All examples seem to put similar listeners in the same initialize function.
+ * 4. An examination into click listener for the reverse geocode, why is it fired when the Delete Marker button is clicked? 
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
  * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
  * 7. A new marker when a USNG search is performed
@@ -86,9 +85,14 @@ function initialize() {
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
 	//document.getElementById('inputUSNGTxt').disabled=true;
 	
+	//add a listener for the autocomplete choice made
+	google.maps.event.addListener(autocomplete, 'place_changed', function() {
+		document.getElementById('btnSearch').click();
+	});
+	
   	google.maps.event.addListener(map, 'click', function(event) {
-	 	//console.log("Running a reverse geocode at:"+event.latlng.lat()+", "+event.latlng.lng());
-	 	reverseGeoCode(event.latlng);
+	 	//console.log("Running a reverse geocode at:"+event.latLng.lat()+", "+event.latLng.lng());
+	 	reverseGeoCode(event.latLng);
 	});
 	
 	// add listener to detect change in zoom level
@@ -181,15 +185,19 @@ function convUSNG(txt) {
 	console.log("New zoom level is: "+usngZlev);
 	var foundLatLng = new google.maps.LatLng(foundLLobj.lat,foundLLobj.lon);
 	map.setCenter(foundLatLng);
+	createMarker(foundLatLng,null);
+	//reverseGeoCode(foundLatLng);
 }
 
 //do a reverse geocode on a clicked point (or dragged marker?)
 //Currently not working, unsure why
 function reverseGeoCode (pnt){
-	geocoder.geocode({'latLng':pnt}, function(results,status) {
+	//map.setCenter(pnt);
+	geocoder.geocode({'latLng': pnt}, function(results, status) {
       if (status == google.maps.GeocoderStatus.OK) {
         map.setCenter(results[0].geometry.location);
         createMarker(results[0].geometry.location,results[0].formatted_address);
+        //can we / should we open up the infowindow here? Or fill the new address into the search window?
       } else {
         alert("Geocode was not successful for the following reason: " + status);
       }

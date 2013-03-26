@@ -49,8 +49,13 @@ function createMarker(latlng,strAddress) {
 	google.maps.event.addListener(marker, "click", function() {
       thismarker = marker; //set thismarker global equal to this one so it can be deleted
       	var zLev = map.getZoom();
-		var info_str = strAddress;
-   		info_str += '<br \/>' + buildCoordString1(latlng,zLev);
+      	if (strAddress != null) {
+      		var info_str = strAddress + '<br \/>' ;
+      	} else {
+      		var info_str = "";
+      	}
+			
+   		info_str += buildCoordString1(latlng,zLev);
    		//launch more page
    		info_str += '&nbsp...<a href=\"more.html" target=\"_blank\">More<\/a>';
    		//include directions
