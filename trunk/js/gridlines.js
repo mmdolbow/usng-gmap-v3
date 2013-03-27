@@ -14,6 +14,7 @@
  * 
  * NEEDS:
  * 1. Not sure if #5 above is going to work, needs testing before continuing with other types
+ * 2. Basic look at creation of variable creation in usngviewport function
  * */
 
 var x1;
