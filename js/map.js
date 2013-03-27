@@ -42,6 +42,7 @@
  * 8. Map click listener for a reverse geocode
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
+ * 11. Functions to toggle zone and grid lines, which call functions in gridlines.js
  * 
  * NEEDS:
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
@@ -56,9 +57,10 @@
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
  * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
  * 7. A new marker when a USNG search is performed
+ * 8. USNG overlays still need work - functions are firing but the overlays aren't initiating properly.
  * */
 
-
+//Global variables for map.js
 var map,geocoder;
 var usngfunc = new USNG2();
 var searchType = "address";
@@ -69,6 +71,11 @@ var autocOptions = {
 	  bounds: defaultBounds,
 	  types: ['geocode']
 	};
+//Objects for storing USNG overlay lines
+var zoneLines = null;
+var lines100k = null;
+var lines1k = null;
+var lines100m = null;
 
 function initialize() {
     geocoder = new google.maps.Geocoder();
@@ -81,6 +88,13 @@ function initialize() {
     map = new google.maps.Map(document.getElementById("map_canvas"),
         mapOptions);
     var inputAddrTxt = document.getElementById('inputAddrTxt');
+    
+    //Set initial USNG overlays as off, define a usng viewport
+    map.zoneon = false;    
+	map.grid100kon = false;
+	map.grid1kon=false;
+	map.grid100mon=false;
+	curr_usng_view = new usngviewport(map);
 	
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
 	//document.getElementById('inputUSNGTxt').disabled=true;
@@ -120,11 +134,11 @@ function startSearch(addrTxt,USNGTxt) {
 
 //Set or switch the search Type
 function setSearchType(radiotype) {
-	console.log("The type is set to: "+radiotype);
+	//console.log("The type is set to: "+radiotype);
 	//set the global searchType variable so it can be used later if necessary
 	searchType = radiotype;
 	if (searchType === "usng"){
-		console.log("Switching to the USNG Search Type.");
+		//console.log("Switching to the USNG Search Type.");
 		//Disable the address input - but then you can't click in it to activate it!
 		//document.getElementById('inputAddrTxt').disabled=true;
 		//document.getElementById('inputUSNGTxt').disabled=false;
@@ -132,7 +146,7 @@ function setSearchType(radiotype) {
 		document.getElementById('radioUSNG').checked = true;
 		
 	} else {
-		console.log("Switching to the Address Search Type.");
+		//console.log("Switching to the Address Search Type.");
 		//disable the USNG input - but then you can't click in it to activate it!
 		//document.getElementById('inputUSNGTxt').disabled=true;
 		//document.getElementById('inputAddrTxt').disabled=false;
@@ -145,7 +159,7 @@ function setSearchType(radiotype) {
 function codeAddress(addrTxt) {
     var address = addrTxt;
     //var address = document.getElementById('inputTxt').value; //This was a traditional way to do it, not sure if this is best
-    console.log("Geocoding address: "+address);
+    //console.log("Geocoding address: "+address);
     geocoder.geocode({'address':address}, function(results,status) {
       if (status == google.maps.GeocoderStatus.OK) {
         map.setCenter(results[0].geometry.location);
@@ -158,7 +172,7 @@ function codeAddress(addrTxt) {
   }
   
 function convUSNG(txt) {
-	console.log("Let's try to convert USNG: "+txt);
+	//console.log("Let's try to convert USNG: "+txt);
 	var usngZlev = null;
 	try {
 		var foundLLobj = usngfunc.toLonLat(txt,null);
@@ -190,7 +204,6 @@ function convUSNG(txt) {
 }
 
 //do a reverse geocode on a clicked point (or dragged marker?)
-//Currently not working, unsure why
 function reverseGeoCode (pnt){
 	//map.setCenter(pnt);
 	geocoder.geocode({'latLng': pnt}, function(results, status) {
@@ -234,6 +247,100 @@ function displayGridOptions(zLev) {
                 }
 }
 
+
+// response to check box that allows user to turn zone lines on and off
+function toggleZoneDisp() {
+   if (map.zoneon == false) { 
+        map.zoneon=true; 
+        //curr_usng_view = new usngviewport(map);  // not sure if this line is ever needed or not
+        refreshZONES();
+   }
+   else { 
+       //map.removeOverlay(zoneLines)   
+       zoneLines.setMap(null);
+       map.zoneon = false; 
+   }
+ //   alert("in toggleZoneDisp, property zoneon="+map.zoneon)
+}
+
+// 100,000-meter grid squares
+function toggle100kDisp() {
+   if (map.grid100kon == false) {
+       map.grid100kon = true;
+       refresh100K();
+       if (map.getZoom()>=10 && map.zoneon==true) { 
+           zoneLines.zonemarkerremove();
+        }
+   }
+   else {
+       //map.removeOverlay(lines100k)
+       lines100k.setMap(null);
+       map.grid100kon = false;
+       if (map.getZoom()>=10 && map.zoneon==true) { 
+           zoneLines.zonemarkerdraw();
+        }
+   }
+}
+
+// 1,000-meter grid
+function toggle1kDisp() {
+   if (map.grid1kon == false) {
+       map.grid1kon = true;
+       refresh1K();
+    }
+   else {
+       //map.removeOverlay(lines1k)
+       lines1k.setMap(null);
+       map.grid1kon = false;
+    }
+}
+
+// 100-meter grid
+function toggle100mDisp() {
+   if (map.grid100mon == false) {
+       map.grid100mon = true;
+       refresh100m();
+    }
+   else {
+       //map.removeOverlay(lines100m)
+       lines100m.setMap(null);
+       map.grid100mon = false;
+    }
+}
+
+
+// redraw UTM zone lines
+function refreshZONES() {
+   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,map.getZoom(),zonelineopacity);
+   //map.addOverlay(zoneLines)
+   zoneLines.setMap(map);
+   zoneLines.zonedraw();
+   if (map.getZoom() < 10 || map.grid100kon==false) { 
+      zoneLines.zonemarkerdraw();
+   }
+}
+
+// redraw 100,000-meter grid USNG lines
+function refresh100K() {
+    lines100k = new grid100klines(curr_usng_view,k100_linecolor,k100_linewidth,k100_lineopacity);
+    //map.addOverlay(lines100k);
+    lines100k.setMap(map);
+}
+
+// redraw 1000-meter grid USNG lines
+function refresh1K() {
+    lines1k = new grid1klines(curr_usng_view,k1_linecolor,k1_linewidth,k1_lineopacity);
+    //map.addOverlay(lines1k);
+    lines1k.setMap(map);
+}
+
+// redraw 100 meter grid USNG lines
+function refresh100m() {
+    //************** change line color, etc *************
+    lines100m = new grid100mlines(curr_usng_view,m100_linecolor,m100_linewidth,m100_lineopacity);
+    //map.addOverlay(lines100m);
+    lines100m.setMap(map);
+}
 
 //switch the mode of the UI to/from mini search launch button to full search dialog
 //Recently added a type variable passed from two different search launch buttons
