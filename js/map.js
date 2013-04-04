@@ -77,6 +77,23 @@ var lines100k = null;
 var lines1k = null;
 var lines100m = null;
 
+//variables for USNG overlay colors etc
+var zonelinecolor = "#ff0000";
+var zonelinewidth = 5;
+var zonelineopacity = .40;
+
+var k100_linecolor = "#0000ff";
+var k100_linewidth = 3;
+var k100_lineopacity = .40;
+
+var k1_linecolor = "#000000";
+var k1_linewidth = 1;
+var k1_lineopacity = 1;
+
+var m100_linecolor = "#ff6633";
+var m100_linewidth = 1;
+var m100_lineopacity = 1;
+
 function initialize() {
     geocoder = new google.maps.Geocoder();
     var mapOptions = {
@@ -94,7 +111,14 @@ function initialize() {
 	map.grid100kon = false;
 	map.grid1kon=false;
 	map.grid100mon=false;
-	curr_usng_view = new usngviewport(map);
+	
+	//add a onetime listener for the map idle so we can instantiate a usng view
+	google.maps.event.addListenerOnce(map, 'idle', function(){
+        console.log("Bounds are: "+this.getBounds());
+        curr_usng_view = new usngviewport(this);
+    });
+	
+	
 	
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
 	//document.getElementById('inputUSNGTxt').disabled=true;
@@ -311,8 +335,10 @@ function toggle100mDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,map.getZoom(),zonelineopacity);
+	console.log("Zone lines being instantiated.");
+   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,map);
    //map.addOverlay(zoneLines)
+   console.log("Adding zone lines to the map");
    zoneLines.setMap(map);
    zoneLines.zonedraw();
    if (map.getZoom() < 10 || map.grid100kon==false) { 
