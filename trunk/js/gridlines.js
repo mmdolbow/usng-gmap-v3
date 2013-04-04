@@ -9,12 +9,15 @@
  * 1. All GLatLng replaced with google.maps.LatLng
  * 2. Width and Opacity on PolyLines switched with Opacity and Width
  * 3. All GPolyline replaced with google.maps.Polyline
- * 4. new GOverlay(); lines commented out
+ * 4. new GOverlay(); lines replaced with new google.maps.OverlayView();
  * 5. Added this.lat_line[i-1].setMap(this.map); and this.lng_line[i-1].setMap(this.map); For Zone Lines
+ * 6. Replaced all prototype.remove with prototype.onRemove
  * 
  * NEEDS:
  * 1. Not sure if #5 above is going to work, needs testing before continuing with other types
- * 2. Basic look at creation of variable creation in usngviewport function
+ * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
+ *    Probably need to take everything in usngzonelines.prototype.initialize and move into the basic defining function above it
+ * 3. A bunch of ending semicolons! ;-)
  * */
 
 var x1;
@@ -32,6 +35,7 @@ var y1;
 
 function usngviewport(mygmap) {   // mygmap is an instance of google.map, created by calling function
    // arrays that hold the key coordinates...corners of viewport and UTM zone boundary intersections
+   console.log("Inside the usngviewport function.");
    this.lat_coords = new Array();
    this.lng_coords = new Array();
 
@@ -148,34 +152,43 @@ usngviewport.prototype.geoextents = function() {
 
 // usngzonelines is implemented as a Google Maps custom overlay
 
-function usngzonelines(viewport,color,opacity,width) { 
-   this.view = viewport
-   this.color = color
-   this.opacity = opacity
-   this.width = Math.floor(width*(3/4))
+function usngzonelines(viewport,color,opacity,map) { 
+   
+   this.view = viewport;
+   this.color = color;
+   this.opacity = opacity;
+   this.map_ = map;
+	//GMaps dev guide recommends explicitly setting the map here
+	this.setMap(map);
+
+   
+   //Larry's originally had this line, with width being passed in as the last variable. But map.getZoom() was the 
+   //only variable left that he was passing in...
+   //this.width = Math.floor(width*(3/4));
 }
 
-//usngzonelines.prototype = new GOverlay();
+usngzonelines.prototype = new google.maps.OverlayView();
 
 usngzonelines.prototype.initialize = function(map) {
-   this.map_ = map
-   this.lat_line = new Array()
-   this.lng_line = new Array()
-   this.temp1 = new Array()
-   this.temp2 = new Array()
-   this.temp3 = new Array()
-   this.latlines = this.view.lats()
-   this.lnglines = this.view.lngs()
-   this.gzd_rectangles = this.view.geoextents()
-   this.marker = new Array()
+	console.log("We have started the initialize function for usngzonelines.");
+   this.map_ = map;
+   this.lat_line = new Array();
+   this.lng_line = new Array();
+   this.temp1 = new Array();
+   this.temp2 = new Array();
+   this.temp3 = new Array();
+   this.latlines = this.view.lats();
+   this.lnglines = this.view.lngs();
+   this.gzd_rectangles = this.view.geoextents();
+   this.marker = new Array();
 
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
    for (var i=1; i<this.latlines.length; i++) {  
       for (var j=0; j<this.lnglines.length; j++) {   
-         this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j])
+         this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
       }
-      this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color, this.opacity,this.width)
+      this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color, this.opacity,this.width);
       this.lat_line[i-1].setMap(this.map);
    }
 
@@ -303,9 +316,31 @@ usngzonelines.prototype.initialize = function(map) {
    }  // for each latitude line
 }  // function initialize
 
+// google custom overlays require a draw function, but this application treats overlays
+//    differently than the interface intended.  Until we need it otherwise, draw is a dummy function; zonedraw is the
+//    real function, but calls to it must be managed by the application, not the underlying api
+usngzonelines.prototype.draw = function () { return; }
 
+// draw utm zone lines
+usngzonelines.prototype.zonedraw = function() {
+   // draw latitude lines
+   for (var i=0; i<this.lat_line.length; i++) {
+      if (i>0) {
+         this.map_.addOverlay(this.lat_line[0])   // bug...don't understand why this is necessary
+         this.map_.addOverlay(this.lat_line[i-1])
+      }
+   }
 
-usngzonelines.prototype.remove = function() {
+   // draw longitude lines
+   for (i=0; i<this.lng_line.length; i++) {
+      if (i>0) {
+         this.map_.addOverlay(this.lng_line[0])   // bug...don't understand why this is necessary
+         this.map_.addOverlay(this.lng_line[i-1])
+      }
+   }
+}
+
+usngzonelines.prototype.onRemove = function() {
    // remove latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
       this.map_.removeOverlay(this.lat_line[i])
@@ -323,38 +358,14 @@ usngzonelines.prototype.remove = function() {
    }
 } 
 
+// required function for google custom overlays; not sure if needed for this application
+usngzonelines.prototype.onAdd = function () {  }
+
 usngzonelines.prototype.zonemarkerremove = function() {
    // remove center-point label markers
    if (this.marker) {
       for (i=0; i<this.marker.length; i++) {
          this.map_.removeOverlay(this.marker[i])
-      }
-   }
-}
-
-// required function for google custom overlays; not needed for this application
-usngzonelines.prototype.copy = function () {  }
-
-// google custom overlays require a redraw function, but this application treats overlays
-//    differently than the interface intended.  redraw is a dummy function; zonedraw is the
-//    real function, but calls to it must be managed by the application, not the underlying api
-usngzonelines.prototype.redraw = function () { return; }
-
-// draw utm zone lines
-usngzonelines.prototype.zonedraw = function() {
-   // draw latitude lines
-   for (var i=0; i<this.lat_line.length; i++) {
-      if (i>0) {
-         this.map_.addOverlay(this.lat_line[0])   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lat_line[i-1])
-      }
-   }
-
-   // draw longitude lines
-   for (i=0; i<this.lng_line.length; i++) {
-      if (i>0) {
-         this.map_.addOverlay(this.lng_line[0])   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lng_line[i-1])
       }
    }
 }
@@ -379,7 +390,7 @@ usngzonelines.prototype.zonemarkerdraw = function() {
    }
 }  
 
-/////////////////end of class that draws zone lines///////////////////////////////
+/////////////////end of class that draws zone lines and markers///////////////////////////////
 
 ///////////////////// class to draw 100,000-meter grid lines/////////////////////////
 	
@@ -393,7 +404,7 @@ function grid100klines(viewport,color,width,opacity) {
    this.gridcell_100k = new Array()
 }
 
-//grid100klines.prototype = new GOverlay();
+grid100klines.prototype = new google.maps.OverlayView();
 
 grid100klines.prototype.initialize = function(map) {
    this.map = map
@@ -410,7 +421,7 @@ grid100klines.prototype.initialize = function(map) {
 
 }
 
-grid100klines.prototype.remove = function() {
+grid100klines.prototype.onRemove = function() {
    this.map.removeOverlay(this.zonelines)
    for (var i=0; i<this.zones.length; i++) {
       this.gridcell_100k[i].remove()
@@ -442,7 +453,7 @@ function grid1klines(viewport,color,width,opacity) {
    this.gridcell_1k = new Array()
 }
 
-//grid1klines.prototype = new GOverlay();
+grid1klines.prototype = new google.maps.OverlayView();
 
 grid1klines.prototype.initialize = function(map) {
    this.map = map
@@ -459,7 +470,7 @@ grid1klines.prototype.initialize = function(map) {
 
 }
 
-grid1klines.prototype.remove = function() {
+grid1klines.prototype.onRemove = function() {
 
    // remove zone lines
    this.map.removeOverlay(this.zonelines)
@@ -493,7 +504,7 @@ function grid100mlines(viewport,color,width,opacity) {
    this.gridcell_100m = new Array()
 }
 
-//grid100mlines.prototype = new GOverlay();
+grid100mlines.prototype = new google.maps.OverlayView();
 
 grid100mlines.prototype.initialize = function(map) {
    this.map = map
@@ -505,7 +516,7 @@ grid100mlines.prototype.initialize = function(map) {
 
 }
 
-grid100mlines.prototype.remove = function() {
+grid100mlines.prototype.onRemove = function() {
 
    // remove zone lines
    this.map.removeOverlay(this.zonelines)
@@ -737,7 +748,7 @@ gridcell.prototype.drawOneCell = function() {
 }  // end drawOneCell
 
 
-gridcell.prototype.remove = function() {
+gridcell.prototype.onRemove = function() {
    for (var i=0; i<this.gridlines.length; i++) {
       this.map.removeOverlay(this.gridlines[i]);
    }
