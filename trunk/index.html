@@ -34,7 +34,7 @@
     		method = get is assumed, just changes the URL and kills for USNG
     		onsubmit="startSearch(this.inputAddrTxt.value,this.inputUSNGTxt.value); return false;"  results in a server error with a POST method
     		-->
-    	<form id="srchFrm" method="post" name="frmSearch" action="javascript:startSearch(this.inputAddrTxt.value,this.inputUSNGTxt.value);">
+    	<form id="srchFrm" method="post" name="frmSearch" action="javascript:startSearch(document.getElementById('srchFrm').inputAddrTxt.value,document.getElementById('srchFrm').inputUSNGTxt.value);">
 		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" value="" onclick="setSearchType('address');" placeholder="Enter an address"/>
 		  <input type="text" id="inputUSNGTxt" name="inputUSNGTxt" value="" onclick="setSearchType('usng');" placeholder="Enter a USNG value"/><br />
 		  <input type="submit" id="btnSearch" name="searchButton" value="Search"/>
