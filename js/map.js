@@ -118,8 +118,6 @@ function initialize() {
         curr_usng_view = new usngviewport(this);
     });
 	
-	
-	
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
 	//document.getElementById('inputUSNGTxt').disabled=true;
 	
@@ -150,7 +148,8 @@ function startSearch(addrTxt,USNGTxt) {
 	if (searchType === "address") {
 		codeAddress(addrTxt); 
 	} else {
-		//console.log("Searching on USNG: "+USNGTxt);
+		USNGTxt = USNGTxt.toLocaleUpperCase();
+		console.log("Searching on USNG: "+USNGTxt);
 		convUSNG(USNGTxt);
 	}
 	//switchUIMode(1);
@@ -268,7 +267,7 @@ function displayGridOptions(zLev) {
        document.getElementById('grid100mcheckbox').style.display="inline-block";
     } else {
     	document.getElementById('grid100mcheckbox').style.display="none";
-                }
+    }
 }
 
 
@@ -276,7 +275,7 @@ function displayGridOptions(zLev) {
 function toggleZoneDisp() {
    if (map.zoneon == false) { 
         map.zoneon=true; 
-        //curr_usng_view = new usngviewport(map);  // not sure if this line is ever needed or not
+        curr_usng_view = new usngviewport(map);  // resets the usngviewport - required?
         refreshZONES();
    }
    else { 
@@ -335,7 +334,7 @@ function toggle100mDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-	console.log("Zone lines being instantiated.");
+   console.log("Zone lines being instantiated.");
    zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,map);
    //map.addOverlay(zoneLines)
    console.log("Adding zone lines to the map");
