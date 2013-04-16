@@ -16,7 +16,7 @@
  * NEEDS:
  * 1. Not sure if #5 above is going to work, needs testing before continuing with other types
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
- *    Probably need to take everything in usngzonelines.prototype.initialize and move into the basic defining function above it
+ *    Probably need to evaluate everything in usngzonelines.prototype.onAdd
  * 3. A bunch of ending semicolons! ;-)
  * */
 
@@ -158,20 +158,21 @@ function usngzonelines(viewport,color,opacity,map) {
    this.color = color;
    this.opacity = opacity;
    this.map_ = map;
-	//GMaps dev guide recommends explicitly setting the map here
-	this.setMap(map);
-
+   //GMaps suggests we define a property to hold the image's
+   // div and leave it null to start
+   this.div_ = null;
    
    //Larry's originally had this line, with width being passed in as the last variable. But map.getZoom() was the 
-   //only variable left that he was passing in...
+   //only variable left that he was passing in...so it doesn't make sense to set a width here
    //this.width = Math.floor(width*(3/4));
 }
 
 usngzonelines.prototype = new google.maps.OverlayView();
 
-usngzonelines.prototype.initialize = function(map) {
-	console.log("We have started the initialize function for usngzonelines.");
-   this.map_ = map;
+//Larry originally had all of these elements inside an initialize function, attempting to switch to onAdd
+usngzonelines.prototype.onAdd = function(map) {
+   console.log("We have started the initialize function for usngzonelines.");
+   //this.map_ = map;
    this.lat_line = new Array();
    this.lng_line = new Array();
    this.temp1 = new Array();
@@ -357,9 +358,6 @@ usngzonelines.prototype.onRemove = function() {
       }
    }
 } 
-
-// required function for google custom overlays; not sure if needed for this application
-usngzonelines.prototype.onAdd = function () {  }
 
 usngzonelines.prototype.zonemarkerremove = function() {
    // remove center-point label markers
