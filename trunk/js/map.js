@@ -61,7 +61,7 @@
  * */
 
 //Global variables for map.js
-var map,geocoder;
+var map,geocoder,curr_usng_view;
 var usngfunc = new USNG2();
 var searchType = "address";
 var defaultBounds = new google.maps.LatLngBounds(
@@ -275,7 +275,8 @@ function displayGridOptions(zLev) {
 function toggleZoneDisp() {
    if (map.zoneon == false) { 
         map.zoneon=true; 
-        curr_usng_view = new usngviewport(map);  // resets the usngviewport - required?
+        curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
+        console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
         refreshZONES();
    }
    else { 
@@ -334,15 +335,15 @@ function toggle100mDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-   console.log("Zone lines being instantiated.");
-   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,map);
+   console.log("Zone lines being added.");
+   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
    //map.addOverlay(zoneLines)
-   console.log("Adding zone lines to the map");
-   zoneLines.setMap(map);
-   zoneLines.zonedraw();
-   if (map.getZoom() < 10 || map.grid100kon==false) { 
+   //Theoretically shouldn't need to "setMap"
+   //zoneLines.setMap(map);
+   //zoneLines.zonedraw(); //this is failing but we need to check the add first
+   /*if (map.getZoom() < 10 || map.grid100kon==false) { 
       zoneLines.zonemarkerdraw();
-   }
+   }*/
 }
 
 // redraw 100,000-meter grid USNG lines
