@@ -12,13 +12,18 @@
  * 4. new GOverlay(); lines replaced with new google.maps.OverlayView();
  * 5. Added this.lat_line[i-1].setMap(this.map); and this.lng_line[i-1].setMap(this.map); For Zone Lines
  * 6. Replaced all prototype.remove with prototype.onRemove
+ * 7. Figured out prototype.lats and prototype.lngs functions not consistently working, trying 
+ *    lat_coords, and lng_coords, instead, in certain places
  * 
  * NEEDS:
  * 1. Not sure if #5 above is going to work, needs testing before continuing with other types
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd
  * 3. A bunch of ending semicolons! ;-)
+ * 4. inside onAdd function, lat/longs don't seem to be getting defined. Can't add a marker at them, never mind Polyline
+ *    Also seems that there are more long coordinates for the viewport than lats, which could muck things up.
  * */
+
 
 var x1;
 var y1;
@@ -34,6 +39,7 @@ var y1;
 //     grid lines are computed within and clipped to this rectangle
 
 function usngviewport(mygmap) {   // mygmap is an instance of google.map, created by calling function
+
    // arrays that hold the key coordinates...corners of viewport and UTM zone boundary intersections
    console.log("Inside the usngviewport function.");
    this.lat_coords = new Array();
@@ -56,14 +62,14 @@ function usngviewport(mygmap) {   // mygmap is an instance of google.map, create
    // first zone intersection inside the southwest corner of the map window
    // longitude coordinate is straight-forward...
 
-   var x1 = (Math.floor((this.wlng/6)+1)*6.0)
+   var x1 = (Math.floor((this.wlng/6)+1)*6.0);
 
    // but latitude coordinate has three cases
    if (this.slat < -80) {  // far southern zone; limit of UTM definition
-      y1 = -80
+      y1 = -80;
    }
    else { 
-       var y1 = (Math.floor((this.slat/8)+1)*8.0)
+       var y1 = (Math.floor((this.slat/8)+1)*8.0);
    }
 
    // compute lines of UTM zones -- geographic lines at 6x8 deg intervals
@@ -80,11 +86,11 @@ function usngviewport(mygmap) {   // mygmap is an instance of google.map, create
          this.lat_coords[j] = lat;
       }
       else if (lat <= 80) {
-         this.lat_coords[j] = 84
+         this.lat_coords[j] = 84;
       }
       else { j-- }
    }
-   this.lat_coords[j] = this.nlat
+   this.lat_coords[j] = this.nlat;
 
    // compute the longitude coordinates that belong to this viewport
    this.lng_coords[0] = this.wlng;
@@ -108,19 +114,19 @@ function usngviewport(mygmap) {   // mygmap is an instance of google.map, create
    // each rectangle may be a full UTM cell, but more commonly will have one or more
    //    edges bounded by the extent of the viewport
    // these geographic rectangles are stored in instances of the class 'usng_georectangle'
-   var k = 0
+   var k = 0;
    for (i=0; i<this.lat_coords.length-1; i++) {
       for (j=0; j<this.lng_coords.length-1; j++) {
          if (this.lat_coords[i]>=72 && this.lng_coords[j]==6) {  } // do nothing
          else if (this.lat_coords[i]>=72 && this.lng_coords[j]==18) {  } // do nothing
          else if (this.lat_coords[i]>=72 && this.lng_coords[j]==30) {  } // do nothing
          else {
-            this.georectangle[k] = new usng_georectangle()
-            this.georectangle[k].assignCorners(this.lat_coords[i], this.lat_coords[i+1], this.lng_coords[j], this.lng_coords[j+1])
+            this.georectangle[k] = new usng_georectangle();
+            this.georectangle[k].assignCorners(this.lat_coords[i], this.lat_coords[i+1], this.lng_coords[j], this.lng_coords[j+1]);
             if (this.lat_coords[i] != this.lat_coords[i+1]) {  // ignore special case of -80 deg latitude
-               this.georectangle[k].assignCenter()
+               this.georectangle[k].assignCenter();
             }
-            k++
+            k++;
          }
       }
    }
@@ -128,17 +134,17 @@ function usngviewport(mygmap) {   // mygmap is an instance of google.map, create
 
 // return array of latitude coordinates corresponding to lat lines
 usngviewport.prototype.lats = function() {
-   return this.lat_coords
+   return this.lat_coords;
 }
 
 // return array of longitude coordinates corresponding to lng lines
 usngviewport.prototype.lngs = function() {
-   return this.lng_coords
+   return this.lng_coords;
 }
 
 // return an array or georectangles associated with this viewprot
 usngviewport.prototype.geoextents = function() {
-   return this.georectangle
+   return this.georectangle;
 }
 
 ////////////////////// end class usngviewport /////////////////////////////////
@@ -152,27 +158,35 @@ usngviewport.prototype.geoextents = function() {
 
 // usngzonelines is implemented as a Google Maps custom overlay
 
-function usngzonelines(viewport,color,opacity,map) { 
+function usngzonelines(viewport,color,opacity,width,map) { 
    
    this.view = viewport;
    this.color = color;
    this.opacity = opacity;
    this.map_ = map;
+   
+   //Larry's originally had this.width = Math.floor(width*(3/4));
+   //here as this  line, with width originally being passed in as the last variable. 
+   //But map.getZoom() was the only variable left that he was passing in...so it doesn't quite make sense to set a width here
+   this.width = Math.floor(width*(3/4));
+   
    //GMaps suggests we define a property to hold the image's
    // div and leave it null to start
    this.div_ = null;
    
-   //Larry's originally had this line, with width being passed in as the last variable. But map.getZoom() was the 
-   //only variable left that he was passing in...so it doesn't make sense to set a width here
-   //this.width = Math.floor(width*(3/4));
+	// Explicitly call setMap on this overlay
+	this.setMap(map); 
+   
 }
 
 usngzonelines.prototype = new google.maps.OverlayView();
 
 //Larry originally had all of these elements inside an initialize function, attempting to switch to onAdd
+//Gmaps doesn't pass any parameters into this function in their example
+//Firebug says 'map' is undefined inside this function, so what happens if we just comment out all the this.map_ stuff?
 usngzonelines.prototype.onAdd = function(map) {
-   console.log("We have started the initialize function for usngzonelines.");
-   //this.map_ = map;
+   console.log("We have started the onAdd function for usngzonelines.");
+   this.map_ = map;
    this.lat_line = new Array();
    this.lng_line = new Array();
    this.temp1 = new Array();
@@ -183,16 +197,25 @@ usngzonelines.prototype.onAdd = function(map) {
    this.gzd_rectangles = this.view.geoextents();
    this.marker = new Array();
 
+	console.log("Latitude lines are: "+this.latlines.toString());
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
    for (var i=1; i<this.latlines.length; i++) {  
       for (var j=0; j<this.lnglines.length; j++) {   
          this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
+          //see if we can add a marker at the first polyline latlng
+          var marker = new google.maps.Marker({
+		      position: new google.maps.LatLng(this.latlines[i],this.lnglines[j]),
+		      map: map,
+		      title:"tooltip me! "+j
+		  });
       }
-      this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color, this.opacity,this.width);
-      this.lat_line[i-1].setMap(this.map);
+      this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color,this.opacity,this.width);
+      this.lat_line[i-1].setMap(this.map_);
+      
    }
 
+	//console.log("First New Polyline created with path:"+this.lat_line[0].getPath.toString());
 
    for (i=1; i<this.lnglines.length; i++) {
 
@@ -200,35 +223,35 @@ usngzonelines.prototype.onAdd = function(map) {
        if (this.lnglines[i] == 6) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==56) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
              }
              else if (this.latlines[j]<56 || (this.latlines[j]>64 && this.latlines[j]<72)) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
              else if (this.latlines[j]>56 && this.latlines[j]<64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
              }
              else if (this.latlines[j]==64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3)
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
              }
              // Svlabard special case
              else if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
              else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3)
-              }
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
+             }
              else {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
              }
           }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width)
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
        
        }
       
@@ -236,107 +259,146 @@ usngzonelines.prototype.onAdd = function(map) {
        else if (this.lnglines[i] == 12) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
           }
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3, this.color, this.opacity,this.width)
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3, this.color, this.opacity,this.width);
       }
        else if (this.lnglines[i] == 18) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
           }
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width)
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
       }
        else if (this.lnglines[i] == 24) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
              else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
              }
           }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width)
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
       }
        else if (this.lnglines[i] == 30) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
              else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3)
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
              }
           }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width)
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
       }
        else if (this.lnglines[i] == 36) {
           for (j=0,k=0; j<this.latlines.length; j++) {
              if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
              }
              else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
              }
           }
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.temp3[k++] = null
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width)
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
       }
 
        // normal case, not in Norway or Svalbard
        else {
           for (j=0; j<this.latlines.length; j++) {
-                this.temp2[j] = new google.maps.LatLng(this.latlines[j],this.lnglines[i])
+                this.temp2[j] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
           }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp2,this.color, this.opacity,this.width)
+          this.lng_line[i-1] = new google.maps.Polyline(this.temp2,this.color, this.opacity,this.width);
       }
-	this.lng_line[i-1].setMap(this.map);
+	this.lng_line[i-1].setMap(this.map_);
    }  // for each latitude line
-}  // function initialize
+}  // function onAdd
 
-// google custom overlays require a draw function, but this application treats overlays
-//    differently than the interface intended.  Until we need it otherwise, draw is a dummy function; zonedraw is the
-//    real function, but calls to it must be managed by the application, not the underlying api
-usngzonelines.prototype.draw = function () { return; }
+// google custom overlays require a draw function, Larry originally used zonedraw and
+//    just did draw is a dummy function with { return; }
+// let's try putting Larry's zonedraw code into this one
+usngzonelines.prototype.draw = function () {
+  
+//This example polyline works, so map is accessible to draw a polyline
+/*  var flightPlanCoordinates = [
+    new google.maps.LatLng(45.772323, -110.214897),
+    new google.maps.LatLng(35.291982, -109.821856),
+    new google.maps.LatLng(40.142599, -95.431),
+    new google.maps.LatLng(42.46758, -91.027892)
+  ];
+  var flightPath = new google.maps.Polyline({
+    path: flightPlanCoordinates,
+    strokeColor: "#FF0000",
+    strokeOpacity: 1.0,
+    strokeWeight: 2
+  });
 
-// draw utm zone lines
-usngzonelines.prototype.zonedraw = function() {
-   // draw latitude lines
+  flightPath.setMap(map);
+*/
+
+// draw latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
       if (i>0) {
-         this.map_.addOverlay(this.lat_line[0])   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lat_line[i-1])
+      	//Let's see if we can just call setMap
+         this.lat_line[0].setMap(map);
+         this.lat_line[i-1].setMap(map);
+         //this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
+         //this.map_.addOverlay(this.lat_line[i-1]);
       }
    }
 
    // draw longitude lines
    for (i=0; i<this.lng_line.length; i++) {
       if (i>0) {
-         this.map_.addOverlay(this.lng_line[0])   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lng_line[i-1])
+         this.lng_line[0].setMap(map);
+         this.lng_line[i-1].setMap(map);
+         //this.map_.addOverlay(this.lng_line[0]);   // bug...don't understand why this is necessary
+         //this.map_.addOverlay(this.lng_line[i-1]);
+      }
+   }
+}
+
+// Larry' original function to draw utm zone lines
+usngzonelines.prototype.zonedraw = function() {
+   // draw latitude lines
+   for (var i=0; i<this.lat_line.length; i++) {
+      if (i>0) {
+         this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
+         this.map_.addOverlay(this.lat_line[i-1]);
+      }
+   }
+
+   // draw longitude lines
+   for (i=0; i<this.lng_line.length; i++) {
+      if (i>0) {
+         this.map_.addOverlay(this.lng_line[0]);   // bug...don't understand why this is necessary
+         this.map_.addOverlay(this.lng_line[i-1]);
       }
    }
 }
@@ -344,17 +406,17 @@ usngzonelines.prototype.zonedraw = function() {
 usngzonelines.prototype.onRemove = function() {
    // remove latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
-      this.map_.removeOverlay(this.lat_line[i])
+      this.map_.removeOverlay(this.lat_line[i]);
    }
 
    // remove longitude lines
    for (i=0; i<this.lng_line.length; i++) {
-      this.map_.removeOverlay(this.lng_line[i])
+      this.map_.removeOverlay(this.lng_line[i]);
    }
    // remove center-point label markers
    if (this.marker) {
       for (i=0; i<this.marker.length; i++) {
-         this.map_.removeOverlay(this.marker[i])
+         this.map_.removeOverlay(this.marker[i]);
       }
    }
 } 
@@ -363,7 +425,7 @@ usngzonelines.prototype.zonemarkerremove = function() {
    // remove center-point label markers
    if (this.marker) {
       for (i=0; i<this.marker.length; i++) {
-         this.map_.removeOverlay(this.marker[i])
+         this.map_.removeOverlay(this.marker[i]);
       }
    }
 }
@@ -371,12 +433,12 @@ usngzonelines.prototype.zonemarkerremove = function() {
 // zone label markers
 usngzonelines.prototype.zonemarkerdraw = function() {
    for (var i=0; i<this.gzd_rectangles.length; i++) {
-      lat = this.gzd_rectangles[i].getCenter().lat()
-      lng = this.gzd_rectangles[i].getCenter().lng()
+      lat = this.gzd_rectangles[i].getCenter().lat();
+      lng = this.gzd_rectangles[i].getCenter().lng();
 
        // labeled marker
-       var z = LLtoUSNG(lat,lng,1)
-       z = z.substring(0,3)
+       var z = LLtoUSNG(lat,lng,1);
+       z = z.substring(0,3);
        opts = { 
           "icon": iconRectangle,
           "clickable": false,
@@ -384,7 +446,7 @@ usngzonelines.prototype.zonemarkerdraw = function() {
           "labelOffset": new GSize(-15, -11)
        };
        this.marker[i] = new LabeledMarker(new google.maps.LatLng(lat,lng),opts);
-       this.map_.addOverlay(this.marker[i])
+       this.map_.addOverlay(this.marker[i]);
    }
 }  
 
