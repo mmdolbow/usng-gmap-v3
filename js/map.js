@@ -78,7 +78,7 @@ var lines1k = null;
 var lines100m = null;
 
 //variables for USNG overlay colors etc
-var zonelinecolor = "#ff0000";
+var zonelinecolor = "#FF0000";
 var zonelinewidth = 5;
 var zonelineopacity = .40;
 
@@ -276,7 +276,7 @@ function toggleZoneDisp() {
    if (map.zoneon == false) { 
         map.zoneon=true; 
         curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
-        console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
+        //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
         refreshZONES();
    }
    else { 

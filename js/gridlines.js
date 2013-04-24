@@ -20,13 +20,36 @@
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd
  * 3. A bunch of ending semicolons! ;-)
- * 4. inside onAdd function, lat/longs don't seem to be getting defined. Can't add a marker at them, never mind Polyline
- *    Also seems that there are more long coordinates for the viewport than lats, which could muck things up.
+ * 4. A way to consistently add the polylines. In the onAdd function, if we send the paths off to a different function, it only works if we
+ *    uncheck and re-check the box (otherwise only draws one line). If we build the this.lat_line polyline, then we can't send off to
+ *    the different function because the path is a full object instead of just an array.
  * */
 
 
 var x1;
 var y1;
+
+//Debugging Functions - add markers at latlngs created inside functions. Can kill this when finished debugging.
+function addMarker(location) {
+  marker = new google.maps.Marker({
+    position: location,
+    map: map
+  });
+}
+
+function addPolyLine(inpath,incolor,inopacity,inwidth)  {
+  //console.log("In the addPolyLine func. The path is: "+inpath.toString()); //path is different each time
+  var megaLine = new google.maps.Polyline({
+    path: inpath,
+    strokeColor: incolor,
+    strokeOpacity: inopacity,
+    strokeWeight: inwidth
+  });
+
+  megaLine.setMap(map);
+
+}
+
 
 
 ///////////////////////  begin class usngviewport ///////////////////////////////////////
@@ -198,24 +221,24 @@ usngzonelines.prototype.onAdd = function(map) {
    this.marker = new Array();
 
 	console.log("Latitude lines are: "+this.latlines.toString());
+	console.log("Longitude lines are: "+this.lnglines.toString());
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
    for (var i=1; i<this.latlines.length; i++) {  
       for (var j=0; j<this.lnglines.length; j++) {   
          this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
-          //see if we can add a marker at the first polyline latlng
-          var marker = new google.maps.Marker({
-		      position: new google.maps.LatLng(this.latlines[i],this.lnglines[j]),
-		      map: map,
-		      title:"tooltip me! "+j
-		  });
+          //console.log("We're inside the for loop to create a lat Polyline, latlng string ="+this.temp1[j].toUrlValue(5));
+          //addMarker(this.temp1[j]);
       }
       this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color,this.opacity,this.width);
-      this.lat_line[i-1].setMap(this.map_);
-      
+      //this.lat_line[i-1].setMap(this.map_); //map instead of this.map_?
+      //console.log("Inside the onAdd function latlines loop, adding polyline for array"+this.temp1.toString());
+      //addPolyLine(this.temp1,this.color,this.opacity,this.width); //execute the setMap elsewhere. Works but only for one polyline on the first run. 
+      //Uncheck and check the box and you get the other lines!! Why?
+      //this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it
    }
 
-	//console.log("First New Polyline created with path:"+this.lat_line[0].getPath.toString());
+	//console.log("First New Polyline created with path:"+this.lat_line[0].getPath());
 
    for (i=1; i<this.lnglines.length; i++) {
 
@@ -364,10 +387,18 @@ usngzonelines.prototype.draw = function () {
 
 // draw latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
+   	var inPath = this.lat_line[0].getPath();
+    console.log("Inside draw func, New Polyline created with path:"+inPath.toString()); //inPath.toString still is just an Object
+	//send off to another function to draw?
+    addPolyLine(this.lat_line[i].getPath(),this.color,this.opacity,this.width);
+    //this.lat_line[i].setMap(map);
+     
       if (i>0) {
+      	
+      	
       	//Let's see if we can just call setMap
-         this.lat_line[0].setMap(map);
-         this.lat_line[i-1].setMap(map);
+         //this.lat_line[0].setMap(map);
+        // this.lat_line[i-1].setMap(map);
          //this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
          //this.map_.addOverlay(this.lat_line[i-1]);
       }
@@ -405,6 +436,7 @@ usngzonelines.prototype.zonedraw = function() {
 
 usngzonelines.prototype.onRemove = function() {
    // remove latitude lines
+   /* temporarily comment this out until getting the add works right
    for (var i=0; i<this.lat_line.length; i++) {
       this.map_.removeOverlay(this.lat_line[i]);
    }
@@ -419,6 +451,7 @@ usngzonelines.prototype.onRemove = function() {
          this.map_.removeOverlay(this.marker[i]);
       }
    }
+   */
 } 
 
 usngzonelines.prototype.zonemarkerremove = function() {
