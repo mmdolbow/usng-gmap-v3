@@ -60,6 +60,9 @@
  * 8. USNG overlays still need work - functions are firing but the overlays aren't initiating properly.
  * */
 
+//Debug variable. Set to true while developing, false when testing
+var debug = false;
+
 //Global variables for map.js
 var map,geocoder,curr_usng_view;
 var usngfunc = new USNG2();
@@ -71,6 +74,7 @@ var autocOptions = {
 	  bounds: defaultBounds,
 	  types: ['geocode']
 	};
+var disableClickListener = false;
 //Objects for storing USNG overlay lines
 var zoneLines = null;
 var lines100k = null;
@@ -126,19 +130,29 @@ function initialize() {
 		document.getElementById('btnSearch').click();
 	});
 	
+	if (debug) {
   	google.maps.event.addListener(map, 'click', function(event) {
-	 	//console.log("Running a reverse geocode at:"+event.latLng.lat()+", "+event.latLng.lng());
-	 	reverseGeoCode(event.latLng);
+		if (disableClickListener){
+			return;
+		} else {
+			//Run a reverse Geocode when clicking the map
+			console.log("Map was clicked.");
+		 	reverseGeoCode(event.latLng);
+		}
 	});
+	}//end if debug for map click listener
 	
-	// add listener to detect change in zoom level
-	google.maps.event.addListener(map,'zoom_changed', function() {
-	   var newzLev=map.getZoom();
-	   displayGridOptions(newzLev);
-	   });
-
-  displayGridOptions(mapOptions.zoom);
-
+	if (debug) {
+		// add listener to detect change in zoom level
+		google.maps.event.addListener(map,'zoom_changed', function() {
+		   var newzLev=map.getZoom();
+		   displayGridOptions(newzLev);
+		   });
+	
+	  displayGridOptions(mapOptions.zoom);
+	} else {
+		displayGridOptions(0);
+	}
   }
 
 

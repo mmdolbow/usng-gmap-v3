@@ -230,7 +230,8 @@ usngzonelines.prototype.onAdd = function(map) {
           //console.log("We're inside the for loop to create a lat Polyline, latlng string ="+this.temp1[j].toUrlValue(5));
           //addMarker(this.temp1[j]);
       }
-      this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color,this.opacity,this.width);
+      this.lat_line[i-1]= this.temp1;//try setting lat_line just to the array that defines the path
+      //this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color,this.opacity,this.width); //setting the lat_line here doesn't work well
       //this.lat_line[i-1].setMap(this.map_); //map instead of this.map_?
       //console.log("Inside the onAdd function latlines loop, adding polyline for array"+this.temp1.toString());
       //addPolyLine(this.temp1,this.color,this.opacity,this.width); //execute the setMap elsewhere. Works but only for one polyline on the first run. 
@@ -387,10 +388,11 @@ usngzonelines.prototype.draw = function () {
 
 // draw latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
-   	var inPath = this.lat_line[0].getPath();
-    console.log("Inside draw func, New Polyline created with path:"+inPath.toString()); //inPath.toString still is just an Object
+   	
+    console.log("Inside draw func, New Polyline created with path:"+this.lat_line[i].toString()); 
 	//send off to another function to draw?
-    addPolyLine(this.lat_line[i].getPath(),this.color,this.opacity,this.width);
+	//now we have lat_line as just a path instead of a full object. This doesn't work either!!
+    addPolyLine(this.lat_line[i],this.color,this.opacity,this.width);
     //this.lat_line[i].setMap(map);
      
       if (i>0) {
