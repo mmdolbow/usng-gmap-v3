@@ -25,6 +25,7 @@
  * - Need better formula to set the precision for usngfunc.fromLonLat based on the zoom level. Right now it's pretty crude
  * - A way to fill in alternative coordinates in the more.html
  * - An examination of the alt coordinates to better understand how to implement
+ * - DisableClickListener variables not working entirely: if we try to set it to false, it is too soon: the map is still clicked
  * 
  *
  ******************************************************************************
@@ -38,6 +39,10 @@
 var infowindow = new google.maps.InfoWindow(); //Global infoWindow to show coordinates, etc
 var thismarker; //workaround to allow a marker to be deleted from within its own infowindow
 
+google.maps.event.addListener(infowindow,"closeclick", function(){
+	disableClickListener = false;
+});
+
 // create and display a marker with usng, lat/lng, and other info
 function createMarker(latlng,strAddress) {
 	var marker = new google.maps.Marker({
@@ -45,8 +50,14 @@ function createMarker(latlng,strAddress) {
 		map: map
 	});
 
+	google.maps.event.addListener(marker, "visible_changed", function() {
+		console.log("Marker visibility changed.");
+		if (disableClickListener) {disableClickListener = false;}
+	});
+
 	//build the info window inside the marker listener so it can be updated with current zoom level
 	google.maps.event.addListener(marker, "click", function() {
+	  disableClickListener = true;
       thismarker = marker; //set thismarker global equal to this one so it can be deleted
       	var zLev = map.getZoom();
       	if (strAddress != null) {
@@ -56,17 +67,30 @@ function createMarker(latlng,strAddress) {
       	}
 			
    		info_str += buildCoordString1(latlng,zLev);
-   		//launch more page
-   		info_str += '&nbsp...<a href=\"more.html" target=\"_blank\">More<\/a>';
+	   	if (debug) {
+	   		//launch more page
+	   		info_str += '&nbsp...<a href=\"more.html" target=\"_blank\">More<\/a>';
+	   	}
+	   		
+   		
    		//include directions
-        info_str += "<br\/><a href=\"https:\/\/maps.google.com\/maps?daddr="+latlng.lat()+ ","+latlng.lng()+"\" target=\"_blank\">Directions<\/a>";
+        info_str += '<br\/><a href=\"https:\/\/maps.google.com\/maps?daddr='+latlng.lat()+ ','+latlng.lng()+'\' target=\"_blank\">Directions<\/a>';
    		//include a delete me button
-   		info_str += '<br \/><input type="button" value="Delete marker" onclick=removeOneMarker()>';
+   		info_str += '<br \/><input type=\"button\" value=\"Delete marker\" onclick=removeOneMarker()>';
 		
 		infowindow.setContent(info_str);
 		infowindow.open(map, marker);
    });
 
+}
+
+function removeOneMarker() {
+  // global variable 'this marker' is a workaround to delete a marker from within its own info window
+  console.log("Removing the marker.");
+  infowindow.close();
+  thismarker.setMap(null);
+  //thismarker.setVisible(false); //doesn't seem to matter how we remove the marker, clicking the button still clicks the map
+  //if (disableClickListener) {disableClickListener = false;} //this works too well, too soon.
 }
 
 
@@ -98,11 +122,7 @@ function buildCoordString1(point,zLev)  {
        return(coordStr)
 }
 
-function removeOneMarker() {
-  // global variable 'this marker' is a workaround to delete a marker from within its own info window
-  infowindow.close();
-  thismarker.setMap(null);
-}
+
 
 // html string that holds coordinates other than NSRC standards (decimal degrees, dms, etc)
 function buildCoordString2(point)  {
