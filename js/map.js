@@ -98,6 +98,12 @@ var m100_linecolor = "#ff6633";
 var m100_linewidth = 1;
 var m100_lineopacity = 1;
 
+/* ****************
+ * Initial Functions for map setup
+ * Initialize map and set up listeners
+ * Launch searches, switch search types
+ */
+
 function initialize() {
     geocoder = new google.maps.Geocoder();
     var mapOptions = {
@@ -130,7 +136,6 @@ function initialize() {
 		document.getElementById('btnSearch').click();
 	});
 	
-	if (debug) {
   	google.maps.event.addListener(map, 'click', function(event) {
 		if (disableClickListener){
 			return;
@@ -140,7 +145,6 @@ function initialize() {
 		 	reverseGeoCode(event.latLng);
 		}
 	});
-	}//end if debug for map click listener
 	
 	if (debug) {
 		// add listener to detect change in zoom level
@@ -192,6 +196,14 @@ function setSearchType(radiotype) {
 	}
 }
 
+/* *************
+ * Utility Functions
+ * Geocoding
+ * USNG conversion
+ * Reverse Geocoding Functions
+ * Map click listener toggle
+ */
+
 //geocode the address, pan/zoom the map, and create a marker via the markers.js script
 function codeAddress(addrTxt) {
     var address = addrTxt;
@@ -208,6 +220,7 @@ function codeAddress(addrTxt) {
     });
   }
   
+//Convert a USNG string to a lat long for a marker and zooming
 function convUSNG(txt) {
 	//console.log("Let's try to convert USNG: "+txt);
 	var usngZlev = null;
@@ -254,8 +267,21 @@ function reverseGeoCode (pnt){
     });
 }
 
-//Control what grids the user is given an option to display...function of zoom level
+//toggle the listener on the map click event
+function mapClickListenerToggle() {
+	if (disableClickListener){
+		//console.log("Turning ON the map click listener.");
+		disableClickListener=false;
+		} else {
+		//console.log("Turning OFF the map click listener.");
+		disableClickListener=true;
+	}
+}
 
+/* **************
+ * Grid and Overlay Functions
+ */
+//Control what grids the user is given an option to display...function of zoom level
 function displayGridOptions(zLev) {
     // Define different zoom levels for turning on and off input boxes
    

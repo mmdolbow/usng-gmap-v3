@@ -18,14 +18,13 @@
  *    single info window with the formatted address, USNG coordinates, and lat/lng
  * 9. Marker and infoWindow functions wired up properly, with USNG coordinates, lat/lng, and directions
  * 10. Updated info window coordinate precision based on the actual zoom level, not just the one derived from the initial address match
- * 11. A way to delete the marker from the info window
+ * 11. A way to delete the marker from the info window, including a delayed toggle of the map click listener so a new marker
+ *     isn't immediately created again.
  * 
  * Needs:
- * - An understanding why a map click event fires when the marker is deleted from the infowindow
  * - Need better formula to set the precision for usngfunc.fromLonLat based on the zoom level. Right now it's pretty crude
  * - A way to fill in alternative coordinates in the more.html
  * - An examination of the alt coordinates to better understand how to implement
- * - DisableClickListener variables not working entirely: if we try to set it to false, it is too soon: the map is still clicked
  * 
  *
  ******************************************************************************
@@ -40,7 +39,7 @@ var infowindow = new google.maps.InfoWindow(); //Global infoWindow to show coord
 var thismarker; //workaround to allow a marker to be deleted from within its own infowindow
 
 google.maps.event.addListener(infowindow,"closeclick", function(){
-	disableClickListener = false;
+	mapClickListenerToggle();
 });
 
 // create and display a marker with usng, lat/lng, and other info
@@ -50,14 +49,9 @@ function createMarker(latlng,strAddress) {
 		map: map
 	});
 
-	google.maps.event.addListener(marker, "visible_changed", function() {
-		console.log("Marker visibility changed.");
-		if (disableClickListener) {disableClickListener = false;}
-	});
-
 	//build the info window inside the marker listener so it can be updated with current zoom level
 	google.maps.event.addListener(marker, "click", function() {
-	  disableClickListener = true;
+	  mapClickListenerToggle();
       thismarker = marker; //set thismarker global equal to this one so it can be deleted
       	var zLev = map.getZoom();
       	if (strAddress != null) {
@@ -89,8 +83,7 @@ function removeOneMarker() {
   console.log("Removing the marker.");
   infowindow.close();
   thismarker.setMap(null);
-  //thismarker.setVisible(false); //doesn't seem to matter how we remove the marker, clicking the button still clicks the map
-  //if (disableClickListener) {disableClickListener = false;} //this works too well, too soon.
+  setTimeout(function(){mapClickListenerToggle();}, 5);
 }
 
 
