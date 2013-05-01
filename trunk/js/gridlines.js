@@ -28,6 +28,7 @@
 
 var x1;
 var y1;
+var allPolyLines = [];
 
 //Debugging Functions - add markers at latlngs created inside functions. Can kill this when finished debugging.
 function addMarker(location) {
@@ -37,17 +38,18 @@ function addMarker(location) {
   });
 }
 
+//Try adding polyline with this separate function
 function addPolyLine(inpath,incolor,inopacity,inwidth)  {
-  //console.log("In the addPolyLine func. The path is: "+inpath.toString()); //path is different each time
-  var megaLine = new google.maps.Polyline({
+  console.log("In the addPolyLine func. The path is: "+inpath.toString()); //path is different each time
+  var thisLine = new google.maps.Polyline({
     path: inpath,
     strokeColor: incolor,
     strokeOpacity: inopacity,
     strokeWeight: inwidth
   });
 
-  megaLine.setMap(map);
-
+  thisLine.setMap(map);
+  //allPolyLines.push(thisLine);
 }
 
 
@@ -189,7 +191,7 @@ function usngzonelines(viewport,color,opacity,width,map) {
    this.map_ = map;
    
    //Larry's originally had this.width = Math.floor(width*(3/4));
-   //here as this  line, with width originally being passed in as the last variable. 
+   //here as this line, with width originally being passed in as the last variable. 
    //But map.getZoom() was the only variable left that he was passing in...so it doesn't quite make sense to set a width here
    this.width = Math.floor(width*(3/4));
    
@@ -224,20 +226,24 @@ usngzonelines.prototype.onAdd = function(map) {
 	console.log("Longitude lines are: "+this.lnglines.toString());
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
-   for (var i=1; i<this.latlines.length; i++) {  
+//Larry originally started this for loop with i=1, why not 0?
+   for (var i=0; i<this.latlines.length; i++) {
+   	this.temp1.length = 0;//not sure if this is functioning to empty the temp1 array or not
       for (var j=0; j<this.lnglines.length; j++) {   
          this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
           //console.log("We're inside the for loop to create a lat Polyline, latlng string ="+this.temp1[j].toUrlValue(5));
-          //addMarker(this.temp1[j]);
+          //addMarker(this.temp1[j]); //this works to show markers at all the intersections
       }
-      this.lat_line[i-1]= this.temp1;//try setting lat_line just to the array that defines the path
+      this.lat_line.push(this.temp1);//try setting lat_line just to the array that defines the path
       //this.lat_line[i-1] = new google.maps.Polyline(this.temp1,this.color,this.opacity,this.width); //setting the lat_line here doesn't work well
       //this.lat_line[i-1].setMap(this.map_); //map instead of this.map_?
       //console.log("Inside the onAdd function latlines loop, adding polyline for array"+this.temp1.toString());
-      //addPolyLine(this.temp1,this.color,this.opacity,this.width); //execute the setMap elsewhere. Works but only for one polyline on the first run. 
+      addPolyLine(this.temp1,this.color,this.opacity,this.width); //execute the setMap elsewhere.
+      // Works but only for one polyline on the first run. 
       //Uncheck and check the box and you get the other lines!! Why?
       //this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it
    }
+
 
 	//console.log("First New Polyline created with path:"+this.lat_line[0].getPath());
 
@@ -368,31 +374,25 @@ usngzonelines.prototype.onAdd = function(map) {
 //    just did draw is a dummy function with { return; }
 // let's try putting Larry's zonedraw code into this one
 usngzonelines.prototype.draw = function () {
-  
-//This example polyline works, so map is accessible to draw a polyline
-/*  var flightPlanCoordinates = [
-    new google.maps.LatLng(45.772323, -110.214897),
-    new google.maps.LatLng(35.291982, -109.821856),
-    new google.maps.LatLng(40.142599, -95.431),
-    new google.maps.LatLng(42.46758, -91.027892)
-  ];
-  var flightPath = new google.maps.Polyline({
-    path: flightPlanCoordinates,
-    strokeColor: "#FF0000",
-    strokeOpacity: 1.0,
-    strokeWeight: 2
-  });
+console.log("Launching the draw function.");
 
-  flightPath.setMap(map);
+//what happens if we use an array for all lines, then setMap with those?
+//How is this different than Larry's way?
+/* This doesn't work either
+for (var l=0; l<allPolyLines.length; l++) {
+	console.log("allPolylines: " +l);
+	allPolyLines[l].setMap(map);
+}
 */
 
 // draw latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
    	
-    console.log("Inside draw func, New Polyline created with path:"+this.lat_line[i].toString()); 
+    //console.log("Inside draw func, creating New Polyline number:"+i); 
 	//send off to another function to draw?
 	//now we have lat_line as just a path instead of a full object. This doesn't work either!!
-    addPolyLine(this.lat_line[i],this.color,this.opacity,this.width);
+	//In this case, all the lines that are added have the exact same path, so this fails in a different way
+    //addPolyLine(this.lat_line[i],this.color,this.opacity,this.width);
     //this.lat_line[i].setMap(map);
      
       if (i>0) {
