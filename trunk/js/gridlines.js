@@ -40,16 +40,17 @@ function addMarker(location) {
 }
 
 //Try adding polyline with this separate function
-function addPolyLine(inPolyLine)  {
-  console.log("In the addPolyLine func. The first lat long is: "+inPolyLine.getPath().getAt(0).toString()); //path is different each time
-  /*var thisLine = new google.maps.Polyline({
+//This only works the second time through because the draw function hasn't been called yet! Right?
+function addPolyLine(inpath)  {
+  console.log("In the addPolyLine func. The path is: "+inpath.toString()); //path is different each time
+  var thisLine = new google.maps.Polyline({
     path: inpath,
-    strokeColor: incolor,
-    strokeOpacity: inopacity,
-    strokeWeight: inwidth
+    strokeColor: '#0000FF',
+    strokeOpacity: 0.2,
+    strokeWeight: 3
   });
-*/
-  inPolyLine.setMap(map);
+
+  thisLine.setMap(map); //this.map_ doesn't work here
   //allPolyLines.push(thisLine);
 }
 
@@ -212,7 +213,7 @@ usngzonelines.prototype = new google.maps.OverlayView();
 //Firebug says 'map' is undefined inside this function, so what happens if we just comment out all the this.map_ stuff?
 usngzonelines.prototype.onAdd = function(map) {
    console.log("We have started the onAdd function for usngzonelines.");
-   this.map_ = map;
+   //this.map_ = map;
    this.lat_line = new Array();
    this.lng_line = new Array();
    this.temp1 = new Array();
@@ -224,12 +225,12 @@ usngzonelines.prototype.onAdd = function(map) {
    this.marker = new Array();
 
 	console.log("Latitude lines are: "+this.latlines.toString());
-	console.log("Longitude lines are: "+this.lnglines.toString());
+	//console.log("Longitude lines are: "+this.lnglines.toString());
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
 //Larry originally started this for loop with i=1, why not 0?
-   for (var i=0; i<this.latlines.length; i++) {
-   	//console.log("Lat lines i="+i);
+   for (var i=1; i<this.latlines.length; i++) {
+   	
    	//this.temp1.length = 0;//not sure if this is functioning to empty the temp1 array or not
       for (var j=0; j<this.lnglines.length; j++) {   
          this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
@@ -237,140 +238,28 @@ usngzonelines.prototype.onAdd = function(map) {
           //addMarker(this.temp1[j]); //this works to show markers at all the intersections
       }
       //this.lat_line.push(this.temp1);//try setting lat_line just to the array that defines the path
-      this.lat_line[i] = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); //setting the lat_line here doesn't work well
+      //console.log("Lat lines i="+i);
+      //At this point the temp1 path is different every time
+      console.log("Inside the onAdd function latlines loop, adding polyline for array"+this.temp1.toString());
+      //this.lat_line[i-1] = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); //setting the lat_line here doesn't work well
       
-      //this.lat_line[i].setMap(map); //map instead of this.map_?
-      //console.log("Inside the onAdd function latlines loop, adding polyline for array"+this.temp1.toString());
-      addPolyLine(this.lat_line[i]); //execute the setMap elsewhere.
-      // Works but only for one polyline on the first run. 
-      //Uncheck and check the box and you get the other lines!! Why?
-      //this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it
-   }
-
+      this.lat_line.push(this.temp1); 
+      
+      
+      //addPolyLine(this.temp1); //execute the setMap elsewhere.
+      //Above Works but only for one heavy polyline on the first run. 
+      //Then we can uncheck and check the box and get the other lines!! Why?
+      this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it, unless you run it again!!
+   } //end for loop of each lat line
+   
+   //at this point, the lat_line array doesn't hold different stuff. It's a right-sized array all with one element
+   
+  
 
 	//console.log("First New Polyline created with path:"+this.lat_line[0].getPath());
 
-   for (i=1; i<this.lnglines.length; i++) {
-
-       // deal with norway special case
-       if (this.lnglines[i] == 6) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==56) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]<56 || (this.latlines[j]>64 && this.latlines[j]<72)) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>56 && this.latlines[j]<64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]==64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             // Svlabard special case
-             else if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
-             }
-             else {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
-       
-       }
-      
-       // additional Svlabard cases
-       else if (this.lnglines[i] == 12) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-          }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3, this.color, this.opacity,this.width);
-      }
-       else if (this.lnglines[i] == 18) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-          }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
-      }
-       else if (this.lnglines[i] == 24) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
-      }
-       else if (this.lnglines[i] == 30) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
-      }
-       else if (this.lnglines[i] == 36) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-          }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp3,this.color, this.opacity,this.width);
-      }
-
-       // normal case, not in Norway or Svalbard
-       else {
-          for (j=0; j<this.latlines.length; j++) {
-                this.temp2[j] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-          }
-          this.lng_line[i-1] = new google.maps.Polyline(this.temp2,this.color, this.opacity,this.width);
-      }
-	this.lng_line[i-1].setMap(this.map_);
-   }  // for each latitude line
+//Paste back in long functions here after debugging the lat functions
+   
 }  // function onAdd
 
 // google custom overlays require a draw function, Larry originally used zonedraw and
@@ -379,34 +268,29 @@ usngzonelines.prototype.onAdd = function(map) {
 usngzonelines.prototype.draw = function () {
 console.log("Launching the draw function.");
 
-//what happens if we use an array for all lines, then setMap with those?
-//How is this different than Larry's way?
-/* This doesn't work either
-for (var l=0; l<allPolyLines.length; l++) {
-	console.log("allPolylines: " +l);
-	allPolyLines[l].setMap(map);
-}
-*/
-
 // draw latitude lines
    for (var i=0; i<this.lat_line.length; i++) {
+   	//So if lat_line just holds an array of coordinates, why can't we addPolyLine here?
+   	//If we empty temp1 in onAdd with .length=0, then There is nothing in this array - at least, not a string of latlongs
+   	//If we don't empty temp1 in onAdd, this is all the same string, just the last one through
+   	console.log("We be lookin at this lat line is: "+this.lat_line[i].toString());
+   	addPolyLine(this.lat_line[i]);
    	
-    console.log("Inside draw func, creating New Polyline number:"+i); 
-	//send off to another function to draw?
-	//now we have lat_line as just a path instead of a full object. This doesn't work either!!
-	//In this case, all the lines that are added have the exact same path, so this fails in a different way
-    //addPolyLine(this.lat_line[i],this.color,this.opacity,this.width);
-    //this.lat_line[i].setMap(map);
+   	
+   	//Inside this function, all lat lines are the same. The right number exist in the array, but they are all the same
+    //console.log("Inside draw func, creating New Polyline with:"+this.lat_line[i].getPath().getAt(0).toString()); 
+   
+    //Let's see if we can just call setMap
+    //this.lat_line[i].setMap(this.map_);
      
       if (i>0) {
-      	var dbugPath = this.lat_line[i].getPath();
-      	var dbugLatLng = dbugPath.getAt(0);
+      	//var dbugPath = this.lat_line[i].getPath();
+      	//var dbugLatLng = dbugPath.getAt(0);
       	//addMarker(dbugLatLng);
       	//console.log("First lat long on lat line "+i+" is :"+dbugLatLng.toString()); //this just shows the same line over and over again
       	
-      	//Let's see if we can just call setMap
-         this.lat_line[0].setMap(this.map_);
-        this.lat_line[i-1].setMap(this.map_);
+         //this.lat_line[0].setMap(this.map_);
+         //this.lat_line[i-1].setMap(this.map_);
          //this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
          //this.map_.addOverlay(this.lat_line[i-1]);
       }
