@@ -42,7 +42,7 @@ function addMarker(location) {
 //Try adding polyline with this separate function
 //This only works the second time through because the draw function hasn't been called yet! Right?
 function addPolyLine(inpath)  {
-  console.log("In the addPolyLine func. The path is: "+inpath.toString()); //path is different each time
+  console.log("In the addPolyLine func. The path is: "+inpath.toString().slice(0,15)); //path is different each time
   var thisLine = new google.maps.Polyline({
     path: inpath,
     strokeColor: '#0000FF',
@@ -217,6 +217,7 @@ usngzonelines.prototype.onAdd = function(map) {
    this.lat_line = new Array();
    this.lng_line = new Array();
    this.temp1 = new Array();
+   //console.log("In onAdd, the temp1 array is currently: "+this.temp1.toString().slice(0,15)); //the array is empty at this point no matter what, which is to be expected
    this.temp2 = new Array();
    this.temp3 = new Array();
    this.latlines = this.view.lats();
@@ -229,7 +230,7 @@ usngzonelines.prototype.onAdd = function(map) {
 
 // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
 //Larry originally started this for loop with i=1, why not 0?
-   for (var i=1; i<this.latlines.length; i++) {
+/*   for (var i=1; i<this.latlines.length; i++) {
    	
    	//this.temp1.length = 0;//not sure if this is functioning to empty the temp1 array or not
       for (var j=0; j<this.lnglines.length; j++) {   
@@ -250,7 +251,8 @@ usngzonelines.prototype.onAdd = function(map) {
       //Above Works but only for one heavy polyline on the first run. 
       //Then we can uncheck and check the box and get the other lines!! Why?
       this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it, unless you run it again!!
-   } //end for loop of each lat line
+   } */
+  //end for loop of each lat line
    
    //at this point, the lat_line array doesn't hold different stuff. It's a right-sized array all with one element
    
@@ -266,44 +268,32 @@ usngzonelines.prototype.onAdd = function(map) {
 //    just did draw is a dummy function with { return; }
 // let's try putting Larry's zonedraw code into this one
 usngzonelines.prototype.draw = function () {
-console.log("Launching the draw function.");
+   console.log("Launching the draw function.");
 
-// draw latitude lines
-   for (var i=0; i<this.lat_line.length; i++) {
-   	//So if lat_line just holds an array of coordinates, why can't we addPolyLine here?
-   	//If we empty temp1 in onAdd with .length=0, then There is nothing in this array - at least, not a string of latlongs
-   	//If we don't empty temp1 in onAdd, this is all the same string, just the last one through
-   	console.log("We be lookin at this lat line is: "+this.lat_line[i].toString());
-   	addPolyLine(this.lat_line[i]);
+   for (var i=1; i<this.latlines.length; i++) {
    	
-   	
-   	//Inside this function, all lat lines are the same. The right number exist in the array, but they are all the same
-    //console.log("Inside draw func, creating New Polyline with:"+this.lat_line[i].getPath().getAt(0).toString()); 
-   
-    //Let's see if we can just call setMap
-    //this.lat_line[i].setMap(this.map_);
-     
-      if (i>0) {
-      	//var dbugPath = this.lat_line[i].getPath();
-      	//var dbugLatLng = dbugPath.getAt(0);
-      	//addMarker(dbugLatLng);
-      	//console.log("First lat long on lat line "+i+" is :"+dbugLatLng.toString()); //this just shows the same line over and over again
-      	
-         //this.lat_line[0].setMap(this.map_);
-         //this.lat_line[i-1].setMap(this.map_);
-         //this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
-         //this.map_.addOverlay(this.lat_line[i-1]);
-      }
-   }
+   	  //this.temp1.length = 0;//not sure if this is functioning to empty the temp1 array or not
+	      for (var j=0; j<this.lnglines.length; j++) {   
+	         this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
+	          //console.log("Lat lines j="+j);
+	          //addMarker(this.temp1[j]); //this works to show markers at all the intersections
+	      }
+      console.log("Inside the draw function latlines loop, temp array is"+this.temp1.toString().slice(0,15));
+      
+      var llnew = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); //setting the lat_line here doesn't work well
+      llnew.setMap(map);
+      
+      //this.lat_line.push(this.temp1); 
+      //addPolyLine(this.temp1); //execute the setMap elsewhere.
+      //Above Works but only for one heavy polyline on the first run. 
+      //Then we can uncheck and check the box and get the other lines!! Why?
+      this.temp1.length = 0; //you would think this would empty the array so it can be filled again, but actually this kills all of it, unless you run it again!!
+   } //end for loop of each lat line
 
-   // draw longitude lines
-   for (i=0; i<this.lng_line.length; i++) {
-      if (i>0) {
-         this.lng_line[0].setMap(map);
-         this.lng_line[i-1].setMap(map);
-         //this.map_.addOverlay(this.lng_line[0]);   // bug...don't understand why this is necessary
-         //this.map_.addOverlay(this.lng_line[i-1]);
-      }
+   // draw latitude lines attempt
+   for (i=0; i<this.lat_line.length; i++) {
+         console.log("At lat_line number: "+i);
+         //this.lat_line[i].setMap(map);
    }
 }
 
