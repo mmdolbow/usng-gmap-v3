@@ -57,7 +57,7 @@
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
  * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
  * 7. A new marker when a USNG search is performed
- * 8. USNG overlays still need work - functions are firing but the overlays aren't initiating properly.
+ * 8. USNG overlays still need work - see gridlines.js
  * */
 
 //Debug variable. Set to true while developing, false when testing
@@ -84,7 +84,7 @@ var lines100m = null;
 //variables for USNG overlay colors etc
 var zonelinecolor = "#FF0000";
 var zonelinewidth = 5;
-var zonelineopacity = .40;
+var zonelineopacity = .20;
 
 var k100_linecolor = "#0000ff";
 var k100_linewidth = 3;
@@ -319,12 +319,21 @@ function toggleZoneDisp() {
         //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
         refreshZONES();
    }
-   else { 
-       //map.removeOverlay(zoneLines)   
+   else {   
        zoneLines.setMap(null);
        map.zoneon = false; 
    }
  //   alert("in toggleZoneDisp, property zoneon="+map.zoneon)
+}
+
+// redraw UTM zone lines
+function refreshZONES() {
+   console.log("Zone lines being added.");
+   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
+   
+   if (map.getZoom() < 10 || map.grid100kon==false) { 
+      zoneLines.zonemarkerdraw();
+   }
 }
 
 // 100,000-meter grid squares
@@ -372,19 +381,6 @@ function toggle100mDisp() {
     }
 }
 
-
-// redraw UTM zone lines
-function refreshZONES() {
-   console.log("Zone lines being added.");
-   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
-   //map.addOverlay(zoneLines)
-   //Theoretically shouldn't need to "setMap"
-   //zoneLines.setMap(map);
-   //zoneLines.zonedraw(); //this is failing but we need to check the add first
-   /*if (map.getZoom() < 10 || map.grid100kon==false) { 
-      zoneLines.zonemarkerdraw();
-   }*/
-}
 
 // redraw 100,000-meter grid USNG lines
 function refresh100K() {

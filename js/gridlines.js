@@ -11,48 +11,24 @@
  * 3. All GPolyline replaced with google.maps.Polyline
  * 4. new GOverlay(); lines replaced with new google.maps.OverlayView();
  * 5. Added this.lat_line[i-1].setMap(this.map); and this.lng_line[i-1].setMap(this.map); For Zone Lines
- * 6. Replaced all prototype.remove with prototype.onRemove
+ * 6. Replaced all prototype.remove with prototype.onRemove. Cleaned up some leftover Larry code for zones
  * 7. Figured out prototype.lats and prototype.lngs functions not consistently working, trying 
  *    lat_coords, and lng_coords, instead, in certain places
+ * 8. Succeeded in getting zone lat and long lines added to the map with array definitions in onAdd and looping through with draw
+ * 		In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
  * 
  * NEEDS:
- * 1. Not sure if #5 above is going to work, needs testing before continuing with other types
+ * 1. More work with zone lines and zone markers
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd
  * 3. A bunch of ending semicolons! ;-)
- * 4. Cleaning up consistently adding the polylines. In the onAdd function, we set up the arrays. In the draw function, we loop through them.
- *    In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
+ * 4. Need to figure out the usng_georectangle class. If it doesn't work, then .prototype.geoextents doesn't work, and then zone markers don't work
  * 	
  * */
 
 
 var x1;
 var y1;
-var allPolyLines = [];
-
-//Debugging Functions - add markers at latlngs created inside functions. Can kill this when finished debugging.
-function addMarker(location) {
-  marker = new google.maps.Marker({
-    position: location,
-    map: map
-  });
-}
-
-//Try adding polyline with this separate function
-//This only works the second time through because the draw function hasn't been called yet! Right?
-function addPolyLine(inpath)  {
-  console.log("In the addPolyLine func. The path is: "+inpath.toString().slice(0,15)); //path is different each time
-  var thisLine = new google.maps.Polyline({
-    path: inpath,
-    strokeColor: '#0000FF',
-    strokeOpacity: 0.2,
-    strokeWeight: 3
-  });
-
-  thisLine.setMap(map); //this.map_ doesn't work here
-  //allPolyLines.push(thisLine);
-}
-
 
 
 ///////////////////////  begin class usngviewport ///////////////////////////////////////
@@ -185,22 +161,15 @@ usngviewport.prototype.geoextents = function() {
 // usngzonelines is implemented as a Google Maps custom overlay
 
 function usngzonelines(viewport,color,opacity,width,map) { 
-   
+   //establish the passed variables for the custom overlay
    this.view = viewport;
    this.color = color;
    this.opacity = opacity;
    this.map_ = map;
-   
-   //Larry's originally had this.width = Math.floor(width*(3/4));
-   //here as this line, with width originally being passed in as the last variable. 
-   //But map.getZoom() was the only variable left that he was passing in...so it doesn't quite make sense to set a width here
    this.width = Math.floor(width*(3/4));
    
-   //GMaps suggests we define a property to hold the image's
-   // div and leave it null to start
-   this.div_ = null;
-   
-	// Explicitly call setMap on this overlay
+	// Explicitly call setMap on this overlay. Custom overlay won't work without this,
+	// even thought you have to call setMap again on the polylines
 	this.setMap(map); 
    
 }
@@ -208,18 +177,13 @@ function usngzonelines(viewport,color,opacity,width,map) {
 usngzonelines.prototype = new google.maps.OverlayView();
 
 //Larry originally had all of these elements inside an initialize function, attempting to switch to onAdd
-//Gmaps doesn't pass any parameters into this function in their example
-//Firebug says 'map' is undefined inside this function, so what happens if we just comment out all the this.map_ stuff?
+//Gmaps doesn't pass any parameters into this function in their example. They say the onAdd() method within your prototype
+//attaches the overlay to the map. and OverlayView.onAdd() will be called when the map is ready for the overlay to be attached..
+//Firebug says 'map' is undefined inside this function, so this.map_ isn't used here like Larry had it
 usngzonelines.prototype.onAdd = function(map) {
    console.log("We have started the onAdd function for usngzonelines.");
-   //this.map_ = map;
    this.lat_line = new Array();
    this.lng_line = new Array();
-   /* Going to need these temp arrays inside the for loops later
-   this.temp1 = new Array();
-   this.temp2 = new Array();
-   this.temp3 = new Array();
-   */
    this.latlines = this.view.lats();
    this.lnglines = this.view.lngs();
    this.gzd_rectangles = this.view.geoextents();
@@ -233,13 +197,12 @@ usngzonelines.prototype.onAdd = function(map) {
    
 }  // function onAdd
 
-// google custom overlays require a draw function, Larry originally used zonedraw and
-//    just did draw is a dummy function with { return; }
-// let's try putting Larry's zonedraw code into this one
-//still need to put the original longitude functions in here
+// google custom overlays require a draw method method within your prototype,
+// that handles the visual display of your object. OverlayView.draw() will be called when the object is first displayed as well.
+// So, where do we put which code loops?
 usngzonelines.prototype.draw = function () {
    console.log("Launching the draw function.");
-
+	this.map_ = map;
    for (var i=1; i<this.latlines.length; i++) {
    	
    	  this.temp1 = [];
@@ -248,57 +211,179 @@ usngzonelines.prototype.draw = function () {
 	          //console.log("Lat lines j="+j);
 	          //addMarker(this.temp1[j]); //this works to show markers at all the intersections
 	      }
-      console.log("Inside the draw function latlines loop, temp array is"+this.temp1.toString().slice(0,15));
+      //console.log("Inside the draw function latlines loop, temp array is"+this.temp1.toString().slice(0,15));
       
-      this.lat_line[i-1] = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); //setting the lat_line here doesn't work well
-      //could we just set the map here?
+      this.lat_line[i-1] = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); 
+      this.lat_line[i-1].setMap(this.map_);
    } //end for loop of each lat line
-
-   // draw latitude lines attempt
-   for (i=0; i<this.lat_line.length; i++) {
-         console.log("At lat_line number: "+i);
-         this.lat_line[i].setMap(map);
-   }
-}
-
-// Larry' original function to draw utm zone lines
-usngzonelines.prototype.zonedraw = function() {
-   // draw latitude lines
-   for (var i=0; i<this.lat_line.length; i++) {
-      if (i>0) {
-         this.map_.addOverlay(this.lat_line[0]);   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lat_line[i-1]);
+  
+   //for each longitude line, including all special cases
+   for (i=0; i<this.lnglines.length; i++) {
+     this.temp2 = [];
+     this.temp3 = [];
+       // deal with norway special case
+       if (this.lnglines[i] == 6) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==56) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
+             }
+             else if (this.latlines[j]<56 || (this.latlines[j]>64 && this.latlines[j]<72)) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+             else if (this.latlines[j]>56 && this.latlines[j]<64) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
+             }
+             else if (this.latlines[j]==64) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+             }
+             // Svlabard special case
+             else if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+             else if (this.latlines[j]>72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
+             }
+             else {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
+             }
+          }
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+       
+       }
+      
+       // additional Svlabard cases
+       else if (this.lnglines[i] == 12) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+          }
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
       }
-   }
-
-   // draw longitude lines
-   for (i=0; i<this.lng_line.length; i++) {
-      if (i>0) {
-         this.map_.addOverlay(this.lng_line[0]);   // bug...don't understand why this is necessary
-         this.map_.addOverlay(this.lng_line[i-1]);
+       else if (this.lnglines[i] == 18) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+          }
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
       }
-   }
+       else if (this.lnglines[i] == 24) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+             else if (this.latlines[j]>72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
+             }
+          }
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+      }
+       else if (this.lnglines[i] == 30) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+             else if (this.latlines[j]>72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
+             }
+          }
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+      }
+       else if (this.lnglines[i] == 36) {
+          for (j=0,k=0; j<this.latlines.length; j++) {
+             if (this.latlines[j]==72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
+             }
+             else if (this.latlines[j]<72) {
+                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+             }
+          }
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.temp3[k++] = null;
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+      }
+
+       // normal case, not in Norway or Svalbard
+       else {
+          for (j=0; j<this.latlines.length; j++) {
+                this.temp2[j] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+          }
+          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp2,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+      }
+	console.log("Inside the draw function longlines loop, temp array is"+this.temp2.toString().slice(0,50));
+	this.lng_line[i-1].setMap(this.map_);
+   }  // for each longitude line
+   
 }
 
 usngzonelines.prototype.onRemove = function() {
    // remove latitude lines
-   /* temporarily comment this out until getting the add works right
+   
    for (var i=0; i<this.lat_line.length; i++) {
-      this.map_.removeOverlay(this.lat_line[i]);
+      this.lat_line[i].setMap(null);
    }
 
    // remove longitude lines
    for (i=0; i<this.lng_line.length; i++) {
-      this.map_.removeOverlay(this.lng_line[i]);
+      this.lng_line[i].setMap(null);
    }
    // remove center-point label markers
    if (this.marker) {
       for (i=0; i<this.marker.length; i++) {
-         this.map_.removeOverlay(this.marker[i]);
+         this.marker[i].setMap(null);
       }
    }
-   */
+   
 } 
+
+// zone label markers
+usngzonelines.prototype.zonemarkerdraw = function() {
+   for (var i=0; i<this.gzd_rectangles.length; i++) {
+      var zlat = this.gzd_rectangles[i].getCenter().lat();
+      var zlng = this.gzd_rectangles[i].getCenter().lng();
+	  //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works]
+       // labeled marker
+       //Larry orig: var z = LLtoUSNG(lat,lng,1);
+       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //will it work to pass in a {} variable?
+       z = z.substring(0,3);
+       opts = { 
+          "icon": iconRectangle,
+          "clickable": false,
+          "labelText": z,
+          "labelOffset": new google.maps.Size(-15, -11)
+       };
+       this.marker[i] = new LabeledMarker(new google.maps.LatLng(zlat,zlng),opts);
+       this.marker[i].setMap(this.map_);
+   }
+}  
 
 usngzonelines.prototype.zonemarkerremove = function() {
    // remove center-point label markers
@@ -308,26 +393,6 @@ usngzonelines.prototype.zonemarkerremove = function() {
       }
    }
 }
-
-// zone label markers
-usngzonelines.prototype.zonemarkerdraw = function() {
-   for (var i=0; i<this.gzd_rectangles.length; i++) {
-      lat = this.gzd_rectangles[i].getCenter().lat();
-      lng = this.gzd_rectangles[i].getCenter().lng();
-
-       // labeled marker
-       var z = LLtoUSNG(lat,lng,1);
-       z = z.substring(0,3);
-       opts = { 
-          "icon": iconRectangle,
-          "clickable": false,
-          "labelText": z,
-          "labelOffset": new GSize(-15, -11)
-       };
-       this.marker[i] = new LabeledMarker(new google.maps.LatLng(lat,lng),opts);
-       this.map_.addOverlay(this.marker[i]);
-   }
-}  
 
 /////////////////end of class that draws zone lines and markers///////////////////////////////
 
@@ -348,7 +413,7 @@ grid100klines.prototype = new google.maps.OverlayView();
 grid100klines.prototype.initialize = function(map) {
    this.map = map
    // zone lines are also the boundaries of 100k lines...separate instance of this class for 100k lines
-   this.zonelines = new usngzonelines(this.view,this.color, this.opacity,this.width)
+   this.zonelines = new usngzonelines(this.view,this.color,this.opacity,this.width)
    this.map.addOverlay(this.zonelines)
    this.zonelines.zonedraw()
 
@@ -657,13 +722,13 @@ gridcell.prototype.drawOneCell = function() {
       }
 
       if (this.interval == 100000) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k100_linecolor, k100_linewidth, k100_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k100_linecolor,strokeWeight:k100_linewidth,strokeOpacity:k100_lineopacity})
       }
       else if (this.interval == 1000) { 
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k1_linecolor, k1_linewidth, k1_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k1_linecolor,strokeWeight:k1_linewidth,strokeOpacity:k1_lineopacity})
       }
       else if (this.interval == 100) { 
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,m100_linecolor, m100_linewidth, m100_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:m100_linecolor,strokeWeight:m100_linewidth,strokeOpacity:m100_lineopacity})
       }
       this.map.addOverlay(this.gridlines[0])
       this.map.addOverlay(this.gridlines[j])
@@ -952,4 +1017,26 @@ gridcell.prototype.place100mMarkers = function(east,north) {
      }
    }
 }  // end place100mMarkers()
+
+
+//Debugging Functions - add markers at latlngs created inside functions. Can kill this when finished debugging.
+function addMarker(location) {
+  marker = new google.maps.Marker({
+    position: location,
+    map: map
+  });
+}
+
+//Add polylines using a path with this separate function
+function addPolyLine(inpath)  {
+  console.log("In the addPolyLine func. The path is: "+inpath.toString().slice(0,15)); //path is different each time
+  var thisLine = new google.maps.Polyline({
+    path: inpath,
+    strokeColor: '#0000FF',
+    strokeOpacity: 0.2,
+    strokeWeight: 3
+  });
+
+  thisLine.setMap(map); //this.map_ doesn't work here
+}
 
