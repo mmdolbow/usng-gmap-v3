@@ -16,13 +16,15 @@
  *    lat_coords, and lng_coords, instead, in certain places
  * 8. Succeeded in getting zone lat and long lines added to the map with array definitions in onAdd and looping through with draw
  * 		In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
+ * 		The usng_georectangle class is fine, the zone marker function just can't be called before the full zone class is instantiated and added
+ * 9. Dummy markers for zone labels are roughed in
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
- *    Probably need to evaluate everything in usngzonelines.prototype.onAdd
- * 3. A bunch of ending semicolons! ;-)
- * 4. Need to figure out the usng_georectangle class. If it doesn't work, then .prototype.geoextents doesn't work, and then zone markers don't work
+ *    Probably need to evaluate everything in usngzonelines.prototype.onAdd and draw to make sure they line up
+ * 3. A bunch of ending semicolons! ;-) Although I think I got them all
+ * 4. New labeled markers, possibly via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 	
  * */
 
@@ -43,7 +45,7 @@ var y1;
 function usngviewport(mygmap) {   // mygmap is an instance of google.map, created by calling function
 
    // arrays that hold the key coordinates...corners of viewport and UTM zone boundary intersections
-   console.log("Inside the usngviewport function.");
+   //console.log("Inside the usngviewport function.");
    this.lat_coords = new Array();
    this.lng_coords = new Array();
 
@@ -124,6 +126,7 @@ function usngviewport(mygmap) {   // mygmap is an instance of google.map, create
          else if (this.lat_coords[i]>=72 && this.lng_coords[j]==30) {  } // do nothing
          else {
             this.georectangle[k] = new usng_georectangle();
+            //console.log("After declaring georectangle, corners will be: "+this.lat_coords[i]+", "+this.lat_coords[i+1]+", "+this.lng_coords[j]+", "+this.lng_coords[j+1]);
             this.georectangle[k].assignCorners(this.lat_coords[i], this.lat_coords[i+1], this.lng_coords[j], this.lng_coords[j+1]);
             if (this.lat_coords[i] != this.lat_coords[i+1]) {  // ignore special case of -80 deg latitude
                this.georectangle[k].assignCenter();
@@ -187,6 +190,7 @@ usngzonelines.prototype.onAdd = function(map) {
    this.latlines = this.view.lats();
    this.lnglines = this.view.lngs();
    this.gzd_rectangles = this.view.geoextents();
+   //console.log("Inside onAdd function, GZD rectangle center lat is: "+this.gzd_rectangles[i].getCenter().lat());
    this.marker = new Array();
 
 	console.log("Latitude lines are: "+this.latlines.toString());
@@ -341,6 +345,43 @@ usngzonelines.prototype.draw = function () {
 	console.log("Inside the draw function longlines loop, temp array is"+this.temp2.toString().slice(0,50));
 	this.lng_line[i-1].setMap(this.map_);
    }  // for each longitude line
+   
+   //Zone Label Markers - need to be here instead of a separate function
+   for (var i=0; i<this.gzd_rectangles.length; i++) {
+      var zlat = this.gzd_rectangles[i].getCenter().lat();
+      var zlng = this.gzd_rectangles[i].getCenter().lng();
+      var zLatLng = new google.maps.LatLng(zlat,zlng);
+	  //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works]
+       // labeled marker
+       //Larry orig: var z = LLtoUSNG(lat,lng,1);
+       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //will it work to pass in a {} variable?
+       z = z.substring(0,3);
+       opts = { 
+          //"icon": iconRectangle, //just do default marker to start for test
+          position: zLatLng,
+          "clickable": false,
+          "labelText": z,
+          "labelOffset": new google.maps.Size(-15, -11)
+       };
+       //original call - need to replace LabeledMarker with something from http://code.google.com/p/google-maps-utility-library-v3/wiki/Libraries
+       //this.marker[i] = new LabeledMarker(new google.maps.LatLng(zlat,zlng),opts);
+       this.marker[i] = new google.maps.Marker(opts);
+
+       this.marker[i].setMap(this.map_);
+       
+       /* This code sample from MarkerWithLabel might work
+       this.marker[i] = new MarkerWithLabel({
+	       position: zLatLng,
+	       map: this.map_,
+	       labelContent: z,
+	       labelAnchor: new google.maps.Point(22, 0),
+	       labelClass: "labels", // the CSS class for the label
+	       labelStyle: {opacity: 0.75},
+	       icon: {}
+     	});
+		*/
+       
+   }
    
 }
 
@@ -544,43 +585,44 @@ grid100mlines.prototype.draw100m = function() {
 
 ///////////////////////// class usng_georectangle//////////////////////////
 function usng_georectangle() {
-   this.nlat = 0
-   this.slat = 0
-   this.wlng=0
-   this.elng=0
-   this.centerlat=0
-   this.centerlng=0
+   this.nlat = 0;
+   this.slat = 0;
+   this.wlng=0;
+   this.elng=0;
+   this.centerlat=0;
+   this.centerlng=0;
 }
 
 usng_georectangle.prototype.assignCorners = function(slat,nlat,wlng,elng) {
+   //console.log("Inside assign corners, they will be: "+slat+", "+nlat+", "+wlng+", "+elng);
    this.nlat = nlat;
    this.slat = slat;
 
    // special case: Norway
    if (slat==56 && wlng==0) {
       this.wlng = wlng;
-      this.elng = elng-3
+      this.elng = elng-3;
    }
    else if (slat==56 && wlng==6) {
       this.wlng = wlng-3;
-      this.elng = elng
+      this.elng = elng;
    }
    // special case: Svlabard
    else if (slat==72 && wlng==0) {
       this.wlng = wlng;
-      this.elng = elng+3
+      this.elng = elng+3;
    }
    else if (slat==72 && wlng==12) {
       this.wlng = wlng-3;
-      this.elng = elng+3
+      this.elng = elng+3;
    }
    else if (slat==72 && wlng==36) {
       this.wlng = wlng-3;
-      this.elng = elng
+      this.elng = elng;
    }
    else {
       this.wlng = wlng;
-      this.elng = elng
+      this.elng = elng;
    }
 }
 
@@ -588,21 +630,22 @@ usng_georectangle.prototype.assignCenter = function() {
       this.centerlat = (this.nlat+this.slat)/2;
       this.centerlng = (this.wlng+this.elng)/2;
 }
+
 usng_georectangle.prototype.getCenter = function() {
-      return(new google.maps.LatLng(this.centerlat,this.centerlng))
+      return(new google.maps.LatLng(this.centerlat,this.centerlng));
 }
 
 usng_georectangle.prototype.getNW = function() {
-      return(new google.maps.LatLng(this.nlat,this.wlng))
+      return(new google.maps.LatLng(this.nlat,this.wlng));
 }
 usng_georectangle.prototype.getSW = function() {
-      return(new google.maps.LatLng(this.slat,this.wlng))
+      return(new google.maps.LatLng(this.slat,this.wlng));
 }
 usng_georectangle.prototype.getSE = function() {
-      return(new google.maps.LatLng(this.slat,this.elng))
+      return(new google.maps.LatLng(this.slat,this.elng));
 }
 usng_georectangle.prototype.getNE = function() {
-      return(new google.maps.LatLng(this.nlat,this.elng))
+      return(new google.maps.LatLng(this.nlat,this.elng));
 }
 //////////////////////////////////////////////////////////////////////////////
 
@@ -612,42 +655,42 @@ usng_georectangle.prototype.getNE = function() {
 
 // constructor
 function gridcell(map,zones,interval) { 
-  this.map = map
-  this.slat = zones.slat
-  this.wlng = zones.wlng
-  this.nlat = zones.nlat
-  this.elng = zones.elng
-  this.interval = interval
-  this.gridlines = new Array()
-  this.marker100k = new Array()
-  this.marker1k = new Array()
+  this.map = map;
+  this.slat = zones.slat;
+  this.wlng = zones.wlng;
+  this.nlat = zones.nlat;
+  this.elng = zones.elng;
+  this.interval = interval;
+  this.gridlines = new Array();
+  this.marker100k = new Array();
+  this.marker1k = new Array();
 }
 
 // instance of one utm cell
 gridcell.prototype.drawOneCell = function() {
-   var utmcoords = new Array()
-   var zone = getZoneNumber((this.slat+this.nlat)/2,(this.wlng+this.elng)/2)
-   var i,j,k,m,n,p,q
+   var utmcoords = new Array();
+   var zone = getZoneNumber((this.slat+this.nlat)/2,(this.wlng+this.elng)/2);
+   var i,j,k,m,n,p,q;
 
-   LLtoUTM(this.slat,this.wlng,utmcoords,zone)
-   var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval
-   var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval
+   LLtoUTM(this.slat,this.wlng,utmcoords,zone);
+   var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
+   var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
 
-   LLtoUTM(this.nlat,this.elng,utmcoords,zone)
-   var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval)+this.interval
-   var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval)+this.interval
+   LLtoUTM(this.nlat,this.elng,utmcoords,zone);
+   var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval)+this.interval;
+   var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval)+this.interval;
 
    var geocoords = new Object();
    var temp = new Array();
    var temp1 = new Array();
-   var gr100kCoord = new Array()
-   var northings = new Array()
-   var eastings = new Array()
+   var gr100kCoord = new Array();
+   var northings = new Array();
+   var eastings = new Array();
 
    // set density of points on grid lines
    // case 1: zoomed out a long way; not very dense
    if (this.map.getZoom() < 12 ) {
-	precision = 10000
+	precision = 10000;
    }
    // case 2: zoomed in a long way
    else if (this.map.getZoom() > 15) {
@@ -655,98 +698,98 @@ gridcell.prototype.drawOneCell = function() {
    }
    // case 3: in between, zoom levels 12-15
    else {
-       precision = 1000
+       precision = 1000;
    }
 
    // for each e-w line that covers the cell, with overedge
-   northings[0] = this.slat
-   k=1
+   northings[0] = this.slat;
+   k=1;
    for (i=sw_utm_n, j=0; i<ne_utm_n; i+=this.interval,j++) {
 
       // collect coords to be used to place markers
       // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-      UTMtoLL(i,sw_utm_e+(2*this.interval),zone,geocoords)
+      UTMtoLL(i,sw_utm_e+(2*this.interval),zone,geocoords);
       if ((geocoords.lat > this.slat) && (geocoords.lat < this.nlat)) {
-          northings[k++] = geocoords.lat
+          northings[k++] = geocoords.lat;
       }
       // calculate  line segments of one e-w line
       for (m=sw_utm_e,n=0; m<=ne_utm_e; m+=precision,n++) {
-         UTMtoLL(i,m,zone,geocoords)
-         temp[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon)
+         UTMtoLL(i,m,zone,geocoords);
+         temp[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon);
          }
       // clipping routine...eliminate overedge lines
       //    case of final point in the array is not covered
       for (p=0, q=0; p<temp.length-1; p++) {
           if (this.checkClip(temp,p)) {
-              gr100kCoord[q++] = temp[p]
+              gr100kCoord[q++] = temp[p];
           }
       }
       if (this.interval == 100000) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k100_linecolor, k100_linewidth, k100_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k100_linecolor, k100_linewidth, k100_lineopacity);
       }
       else if (this.interval == 1000) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k1_linecolor, k1_linewidth, k1_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k1_linecolor, k1_linewidth, k1_lineopacity);
       }
       else if (this.interval == 100) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,m100_linecolor, m100_linewidth, m100_lineopacity)
+         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,m100_linecolor, m100_linewidth, m100_lineopacity);
       }
-      this.map.addOverlay(this.gridlines[0])
-      this.map.addOverlay(this.gridlines[j])
+      this.map.addOverlay(this.gridlines[0]);
+      this.map.addOverlay(this.gridlines[j]);
 
       // clear array that holds coordinates
       for (n=0; gr100kCoord[n]; n++) { gr100kCoord[n] = null; };
     }
-    northings[k++] = this.nlat
-    eastings[0] = this.wlng
-    k=1
+    northings[k++] = this.nlat;
+    eastings[0] = this.wlng;
+    k=1;
 
    // for each n-s line that covers the cell, with overedge
    for (i=sw_utm_e; i<ne_utm_e; i+=this.interval,j++) {
 
       // collect coords to be used to place markers
       // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-      UTMtoLL(sw_utm_n+(2*this.interval),i,zone,geocoords)
+      UTMtoLL(sw_utm_n+(2*this.interval),i,zone,geocoords);
       if (geocoords.lon > this.wlng && geocoords.lon < this.elng) {
-          eastings[k++] = geocoords.lon
+          eastings[k++] = geocoords.lon;
       }
 
       for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
-         UTMtoLL(m,i,zone,geocoords)
-         temp1[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon)
+         UTMtoLL(m,i,zone,geocoords);
+         temp1[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon);
       }
       // clipping routine...eliminate overedge lines
       for (p=0, q=0; p<temp1.length-1; p++) {
           if (this.checkClip(temp1,p)) {
-              gr100kCoord[q++] = temp1[p]
+              gr100kCoord[q++] = temp1[p];
           }
       }
 
       if (this.interval == 100000) {
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k100_linecolor,strokeWeight:k100_linewidth,strokeOpacity:k100_lineopacity})
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k100_linecolor,strokeWeight:k100_linewidth,strokeOpacity:k100_lineopacity});
       }
       else if (this.interval == 1000) { 
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k1_linecolor,strokeWeight:k1_linewidth,strokeOpacity:k1_lineopacity})
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k1_linecolor,strokeWeight:k1_linewidth,strokeOpacity:k1_lineopacity});
       }
       else if (this.interval == 100) { 
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:m100_linecolor,strokeWeight:m100_linewidth,strokeOpacity:m100_lineopacity})
+         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:m100_linecolor,strokeWeight:m100_linewidth,strokeOpacity:m100_lineopacity});
       }
-      this.map.addOverlay(this.gridlines[0])
-      this.map.addOverlay(this.gridlines[j])
+      this.map.addOverlay(this.gridlines[0]);
+      this.map.addOverlay(this.gridlines[j]);
 
       // clear array that holds coordinates
       for (n=0; n<gr100kCoord.length; n++) { gr100kCoord[n] = null; };
     }
 
-    eastings[k] = this.elng
+    eastings[k] = this.elng;
 
     if (this.interval == 100000) {
-       this.place100kMarkers(eastings,northings)
+       this.place100kMarkers(eastings,northings);
     }
     else if (this.interval == 1000) {
-       this.place1kMarkers(eastings,northings)
+       this.place1kMarkers(eastings,northings);
     }
     else if (this.interval == 100) {
-       this.place100mMarkers(eastings,northings)
+       this.place100mMarkers(eastings,northings);
     }
 
 }  // end drawOneCell
@@ -768,99 +811,99 @@ gridcell.prototype.onRemove = function() {
 //        of utm zones and the viewport edges
 
 gridcell.prototype.checkClip = function(cp, p) {
-   var temp
-   var t
-   var u1=cp[p].lng()
-   var v1=cp[p].lat()
-   var u2=cp[p+1].lng()
-   var v2=cp[p+1].lat()
-   var code1 = this.outcode(v1, u1)
-   var code2 = this.outcode(v2, u2)
+   var temp;
+   var t;
+   var u1=cp[p].lng();
+   var v1=cp[p].lat();
+   var u2=cp[p+1].lng();
+   var v2=cp[p+1].lat();
+   var code1 = this.outcode(v1, u1);
+   var code2 = this.outcode(v2, u2);
    if ((code1 & code2) != 0) {   // line segment outside window...don't draw it
-      return null
+      return null;
    }
    if ((code1 | code2) == 0) {   // line segment completely inside window...draw it
-      return 1
+      return 1;
    }
    if (this.inside(v1,u1)) {  // coordinates must be altered
       // swap coordinates
-      temp = u1
-      u1 = u2
-      u2 = temp
-      temp = v1
-      v1 = v2
-      v2 = temp
-      temp = code1
-      code1 = code2
-      code2 = temp
+      temp = u1;
+      u1 = u2;
+      u2 = temp;
+      temp = v1;
+      v1 = v2;
+      v2 = temp;
+      temp = code1;
+      code1 = code2;
+      code2 = temp;
    }
    if (code1 & 8) { // clip along northern edge of polygon
-      t = (this.nlat - v1)/(v2-v1)
-      u1 += t*(u2-u1)
-      v1 = this.nlat
-      cp[p] = new google.maps.LatLng(v1,u1)
+      t = (this.nlat - v1)/(v2-v1);
+      u1 += t*(u2-u1);
+      v1 = this.nlat;
+      cp[p] = new google.maps.LatLng(v1,u1);
    }
    else if (code1 & 4) { // clip along southern edge
-      t = (this.slat - v1)/(v2-v1)
-      u1 += t*(u2-u1)
-      v1 = this.slat
-      cp[p] = new google.maps.LatLng(v1,u1)
+      t = (this.slat - v1)/(v2-v1);
+      u1 += t*(u2-u1);
+      v1 = this.slat;
+      cp[p] = new google.maps.LatLng(v1,u1);
    }
    else if (code1 & 1) { // clip along west edge
-      t = (this.wlng - u1)/(u2-u1)
-      v1 += t*(v2-v1)
-      u1 = this.wlng
-      cp[p] = new google.maps.LatLng(v1,u1)
+      t = (this.wlng - u1)/(u2-u1);
+      v1 += t*(v2-v1);
+      u1 = this.wlng;
+      cp[p] = new google.maps.LatLng(v1,u1);
    }
    else if (code1 & 2) { // clip along east edge
-      t = (this.elng - u1)/(u2-u1)
-      v1 += t*(v2-v1)
-      u1 = this.elng
-      cp[p] = new google.maps.LatLng(v1,u1)
+      t = (this.elng - u1)/(u2-u1);
+      v1 += t*(v2-v1);
+      u1 = this.elng;
+      cp[p] = new google.maps.LatLng(v1,u1);
    }
  
-   return 1
+   return 1;
 }
 
 gridcell.prototype.outcode = function(lat,lng) {
-   var code = 0
+   var code = 0;
    if (lat < this.slat) { code |= 4 }
    if (lat > this.nlat) { code |= 8 }
    if (lng < this.wlng) { code |= 1 }
    if (lng > this.elng) { code |= 2 }
-   return code
+   return code;
 }
 
 gridcell.prototype.inside = function(lat,lng) {
    if (lat < this.slat || lat > this.nlat) {
-      return 0
+      return 0;
    }
    if (lng < this.wlng || lng > this.elng) {
-      return 0
+      return 0;
    }
-   return 1
+   return 1;
 }
 //////////////////////////////////////////////////////////////////////////////////////////
 
 gridcell.prototype.place100kMarkers = function(east,north) {
-   var k=0
-   var zone
-   var z
+   var k=0;
+   var zone;
+   var z;
 
    for (var i=0; east[i+1]; i++) {
       for (var j=0; north[j+1]; j++) {
            // labeled marker
-          zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 )
-          var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,1)
+          zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 );
+          var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,1);
 	  if (this.map.getZoom() > 15) {
-	      return // don't display labeled marker
+	      return; // don't display labeled marker
 	  }
           else if (this.map.getZoom() < 10) {
              if (zone > 9) {
-                 z = z.substring(4,6)
+                 z = z.substring(4,6);
              }
              else {
-                 z = z.substring(3,5)
+                 z = z.substring(3,5);
              }
              opts = { 
                 "icon": icon100k_1,
@@ -871,10 +914,10 @@ gridcell.prototype.place100kMarkers = function(east,north) {
           }
           else {
              if (zone > 9) {
-                 z = z.substring(0,3) + z.substring(4,6)
+                 z = z.substring(0,3) + z.substring(4,6);
              }
              else {
-                 z = z.substring(0,2) + z.substring(3,5)
+                 z = z.substring(0,2) + z.substring(3,5);
              }
              opts = { 
                 "icon": icon100k_2,
@@ -885,8 +928,8 @@ gridcell.prototype.place100kMarkers = function(east,north) {
           }
           this.marker100k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i]+east[i+1])/2),opts);
 
-          this.map.addOverlay(this.marker100k[k])
-          k++
+          this.map.addOverlay(this.marker100k[k]);
+          k++;
      }
    }
 }
@@ -894,9 +937,9 @@ gridcell.prototype.place100kMarkers = function(east,north) {
 
 gridcell.prototype.place1kMarkers = function(east,north) {
 
-   var k=0
-   var zone
-   var z
+   var k=0;
+   var zone;
+   var z;
 
    // at high zooms, don't label the 1k line
    if (this.map.getZoom() > 15) {
@@ -909,13 +952,13 @@ gridcell.prototype.place1kMarkers = function(east,north) {
    for (var i=1; east[i+1]; i++) {
       for (var j=1; j<2; j++) {
            // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2)
-           z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3)
+           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
+           z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3);
            if (zone > 9) {
-              z = z.substring(7,9)
+              z = z.substring(7,9);
            }
            else {
-              z = z.substring(6,8)
+              z = z.substring(6,8);
            }
              opts = { 
                 "icon": icon1k,
@@ -925,8 +968,8 @@ gridcell.prototype.place1kMarkers = function(east,north) {
              };
           this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),opts);
 
-          this.map.addOverlay(this.marker1k[k])
-          k++
+          this.map.addOverlay(this.marker1k[k]);
+          k++;
       }
    }
 
@@ -934,13 +977,13 @@ gridcell.prototype.place1kMarkers = function(east,north) {
    for (var i=1; i<2; i++) {
       for (var j=1; north[j+1]; j++) {
            // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2)
-           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3)
+           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
+           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3);
            if (zone > 9) {   
-               z = z.substring(11,13)
+               z = z.substring(11,13);
            }
            else {
-               z = z.substring(10,12)
+               z = z.substring(10,12);
            }
              opts = { 
                 "icon": icon1k,
@@ -950,8 +993,8 @@ gridcell.prototype.place1kMarkers = function(east,north) {
              };
           this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),opts);
 
-          this.map.addOverlay(this.marker1k[k])
-          k++
+          this.map.addOverlay(this.marker1k[k]);
+          k++;
      }
    }
 }  // end place1kMarkers()
@@ -959,7 +1002,7 @@ gridcell.prototype.place1kMarkers = function(east,north) {
 
 
 gridcell.prototype.place100mMarkers = function(east,north) {
-   var k=0
+   var k=0;
    var zone;
    var z, y;
 
@@ -967,15 +1010,15 @@ gridcell.prototype.place100mMarkers = function(east,north) {
    for (var i=1; east[i+1]; i++) {
       for (var j=1; j<2; j++) {
            // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2)
+           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
            z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,4);
            if (zone > 9) {
-               y = z.substring(7,9)
-	       z = z.substring(9,10)
+           		y = z.substring(7,9);
+	       		z = z.substring(9,10);
            }
            else {
-               y = z.substring(6,8)
-	       z = z.substring(8,9)
+                y = z.substring(6,8);
+	       		z = z.substring(8,9);
            }
              opts = { 
                 "icon": icon100m,
@@ -985,8 +1028,8 @@ gridcell.prototype.place100mMarkers = function(east,north) {
              };
           this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),opts);
 
-          this.map.addOverlay(this.marker1k[k])
-          k++
+          this.map.addOverlay(this.marker1k[k]);
+          k++;
       }
    }
 
@@ -994,15 +1037,15 @@ gridcell.prototype.place100mMarkers = function(east,north) {
    for (var i=1; i<2; i++) {
       for (var j=1; north[j+1]; j++) {
            // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2)
-           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,4)
+           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
+           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,4);
            if (zone > 9) {   
-               y = z.substring(12,14)
-               z = z.substring(14,15)
+               y = z.substring(12,14);
+               z = z.substring(14,15);
            }
            else {
-               y = z.substring(11,13)
-               z = z.substring(13,14)
+               y = z.substring(11,13);
+               z = z.substring(13,14);
            }
              opts = { 
                 "icon": icon100m,
@@ -1012,8 +1055,8 @@ gridcell.prototype.place100mMarkers = function(east,north) {
              };
           this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),opts);
 
-          this.map.addOverlay(this.marker1k[k])
-          k++
+          this.map.addOverlay(this.marker1k[k]);
+          k++;
      }
    }
 }  // end place100mMarkers()
