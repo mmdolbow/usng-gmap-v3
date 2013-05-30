@@ -406,6 +406,7 @@ usngzonelines.prototype.onRemove = function() {
 } 
 
 // zone label markers
+//when calling the zonemarkerdraw function right after enabling the zonelines, the gzd rectangles are not instantiated in time
 usngzonelines.prototype.zonemarkerdraw = function() {
    for (var i=0; i<this.gzd_rectangles.length; i++) {
       var zlat = this.gzd_rectangles[i].getCenter().lat();
