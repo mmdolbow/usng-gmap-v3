@@ -17,14 +17,14 @@
  * 8. Succeeded in getting zone lat and long lines added to the map with array definitions in onAdd and looping through with draw
  * 		In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
  * 		The usng_georectangle class is fine, the zone marker function just can't be called before the full zone class is instantiated and added
- * 9. Dummy markers for zone labels are roughed in
+ * 9. Dummy markers for zone labels are roughed in, new labels working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd and draw to make sure they line up
  * 3. A bunch of ending semicolons! ;-) Although I think I got them all
- * 4. New labeled markers, possibly via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
+ * 4. New labeled markers - have to keep them from doubling up on redraws  
  * 	
  * */
 
@@ -155,9 +155,7 @@ usngviewport.prototype.geoextents = function() {
 ////////////////////// end class usngviewport /////////////////////////////////
 
 
-
-///////////////////// class to draw UTM zone lines/////////////////////////
-
+///////////////////// class to draw UTM zone lines /////////////////////////
 // zones are defined by lines of latitude and longitude, normally 6 deg wide by 8 deg high
 // northern-most zone is 12 deg high, from 72N to 84N
 
@@ -206,7 +204,7 @@ usngzonelines.prototype.onAdd = function(map) {
 // So, where do we put which code loops?
 usngzonelines.prototype.draw = function () {
    console.log("Launching the draw function.");
-	this.map_ = map;
+   this.map_ = map;
    for (var i=1; i<this.latlines.length; i++) {
    	
    	  this.temp1 = [];
@@ -351,38 +349,20 @@ usngzonelines.prototype.draw = function () {
       var zlat = this.gzd_rectangles[i].getCenter().lat();
       var zlng = this.gzd_rectangles[i].getCenter().lng();
       var zLatLng = new google.maps.LatLng(zlat,zlng);
-	  //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works]
-       // labeled marker
-       //Larry orig: var z = LLtoUSNG(lat,lng,1);
-       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //will it work to pass in a {} variable?
+       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //simpler to pass in a {} variable
        z = z.substring(0,3);
-       opts = { 
-          //"icon": iconRectangle, //just do default marker to start for test
-          position: zLatLng,
-          "clickable": false,
-          "labelText": z,
-          "labelOffset": new google.maps.Size(-15, -11)
-       };
-       //original call - need to replace LabeledMarker with something from http://code.google.com/p/google-maps-utility-library-v3/wiki/Libraries
-       //this.marker[i] = new LabeledMarker(new google.maps.LatLng(zlat,zlng),opts);
-       this.marker[i] = new google.maps.Marker(opts);
-
-       this.marker[i].setMap(this.map_);
-       
-       /* This code sample from MarkerWithLabel might work
        this.marker[i] = new MarkerWithLabel({
 	       position: zLatLng,
-	       map: this.map_,
+	       clickable:false,
+	       icon: {},
 	       labelContent: z,
-	       labelAnchor: new google.maps.Point(22, 0),
-	       labelClass: "labels", // the CSS class for the label
-	       labelStyle: {opacity: 0.75},
-	       icon: {}
-     	});
-		*/
-       
+	       labelAnchor: new google.maps.Point(3, 30),
+       	   labelClass: "labels", // the CSS class for the label
+           labelInBackground: false,
+           labelStyle: {opacity: 0.50}
+       });
+       this.marker[i].setMap(this.map_);   
    }
-   
 }
 
 usngzonelines.prototype.onRemove = function() {
