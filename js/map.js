@@ -61,7 +61,7 @@
  * */
 
 //Debug variable. Set to true while developing, false when testing
-var debug = false;
+var debug = true;
 
 //Global variables for map.js
 var map,geocoder,curr_usng_view;
