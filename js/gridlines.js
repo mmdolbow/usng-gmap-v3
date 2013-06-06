@@ -17,14 +17,17 @@
  * 8. Succeeded in getting zone lat and long lines added to the map with array definitions in onAdd and looping through with draw
  * 		In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
  * 		The usng_georectangle class is fine, the zone marker function just can't be called before the full zone class is instantiated and added
- * 9. Dummy markers for zone labels are roughed in, new labels working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
+ * 9. Markers for zone labels are working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 
  * NEEDS:
- * 1. More work with zone lines and zone markers
+ * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
+ *    With zoom out or pan, we need to redraw. With zoom in, we need to NOT redraw.
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd and draw to make sure they line up
  * 3. A bunch of ending semicolons! ;-) Although I think I got them all
  * 4. New labeled markers - have to keep them from doubling up on redraws  
+ * 5. Performance: with redraws (?) on all overlays, just zone markers makes the map chug on a zoom event.
+ *    Need to be able to only redraw if necessary.
  * 	
  * */
 
@@ -191,8 +194,8 @@ usngzonelines.prototype.onAdd = function(map) {
    //console.log("Inside onAdd function, GZD rectangle center lat is: "+this.gzd_rectangles[i].getCenter().lat());
    this.marker = new Array();
 
-	console.log("Latitude lines are: "+this.latlines.toString());
-	console.log("Longitude lines are: "+this.lnglines.toString());
+	//console.log("Latitude lines are: "+this.latlines.toString());
+	//console.log("Longitude lines are: "+this.lnglines.toString());
    
    //should we put the loops back here that establish the lat and long polyline arrays?
    //Then those arrays could be iterated through in the draw function
@@ -340,29 +343,12 @@ usngzonelines.prototype.draw = function () {
           }
           this.lng_line[i-1] = new google.maps.Polyline({path:this.temp2,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
       }
-	console.log("Inside the draw function longlines loop, temp array is"+this.temp2.toString().slice(0,50));
+	//console.log("Inside the draw function longlines loop, temp array is"+this.temp2.toString().slice(0,50));
 	this.lng_line[i-1].setMap(this.map_);
    }  // for each longitude line
    
-   //Zone Label Markers - need to be here instead of a separate function
-   for (var i=0; i<this.gzd_rectangles.length; i++) {
-      var zlat = this.gzd_rectangles[i].getCenter().lat();
-      var zlng = this.gzd_rectangles[i].getCenter().lng();
-      var zLatLng = new google.maps.LatLng(zlat,zlng);
-       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //simpler to pass in a {} variable
-       z = z.substring(0,3);
-       this.marker[i] = new MarkerWithLabel({
-	       position: zLatLng,
-	       clickable:false,
-	       icon: {},
-	       labelContent: z,
-	       labelAnchor: new google.maps.Point(3, 30),
-       	   labelClass: "labels", // the CSS class for the label
-           labelInBackground: false,
-           labelStyle: {opacity: 0.50}
-       });
-       this.marker[i].setMap(this.map_);   
-   }
+   this.zonemarkerdraw();
+   console.log("End draw function for zone lines.");
 }
 
 usngzonelines.prototype.onRemove = function() {
@@ -386,23 +372,29 @@ usngzonelines.prototype.onRemove = function() {
 } 
 
 // zone label markers
-//when calling the zonemarkerdraw function right after enabling the zonelines, the gzd rectangles are not instantiated in time
+//Can call this zonemarkerdraw function from inside the zone lines draw function, but not from map.js
+//  Otherwise the gzd_rectangles aren't in place yet 
 usngzonelines.prototype.zonemarkerdraw = function() {
    for (var i=0; i<this.gzd_rectangles.length; i++) {
       var zlat = this.gzd_rectangles[i].getCenter().lat();
       var zlng = this.gzd_rectangles[i].getCenter().lng();
-	  //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works]
+      var zLatLng = new google.maps.LatLng(zlat,zlng);
+      //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works
+      var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //simpler to pass in a {} variable
+      z = z.substring(0,3);
+	  console.log("Adding marker for zone: "+z);
        // labeled marker
-       //Larry orig: var z = LLtoUSNG(lat,lng,1);
-       var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //will it work to pass in a {} variable?
-       z = z.substring(0,3);
-       opts = { 
-          "icon": iconRectangle,
-          "clickable": false,
-          "labelText": z,
-          "labelOffset": new google.maps.Size(-15, -11)
-       };
-       this.marker[i] = new LabeledMarker(new google.maps.LatLng(zlat,zlng),opts);
+       this.marker[i] = new MarkerWithLabel({
+	       position: zLatLng,
+	       clickable:false,
+	       //icon: {}, //this creates a bunch of network errors, even though this is how the developers suggest no icon
+	       icon: "images/rectangle.png",
+	       labelContent: z,
+	       labelAnchor: new google.maps.Point(12, 17),
+       	   labelClass: "labels", // the CSS class for the label
+           labelInBackground: false,
+           labelStyle: {opacity: 0.75}
+       });
        this.marker[i].setMap(this.map_);
    }
 }  
