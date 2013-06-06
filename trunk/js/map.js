@@ -61,7 +61,7 @@
  * */
 
 //Debug variable. Set to true while developing, false when testing
-var debug = true;
+var debug = false;
 
 //Global variables for map.js
 var map,geocoder,curr_usng_view;
@@ -328,7 +328,7 @@ function toggleZoneDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-   //console.log("Zone lines being added.");
+   console.log("Zone lines being added.");
    zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
    
    /*if (map.getZoom() < 10 || map.grid100kon==false) { 

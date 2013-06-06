@@ -64,12 +64,13 @@ input[type=submit]{
 }
 
 .labels {
-  	color: white;
-    background-color: red;
+  	color: black;
+    /*background-color: red;*/
     font-family: "Lucida Grande", "Arial", sans-serif;
-    font-size: 10px;
+    font-size: 12px;
+    font-weight:bold;
     text-align: center;
-    width: 20px;     
+    width: 25px;     
     white-space: nowrap;
 }
 
