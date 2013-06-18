@@ -5,6 +5,8 @@
  *
  * Originally by Larry Moore
  * Updated for version 3 of the Google Maps API by Mike Dolbow
+ * Assisted by code developed by Xavier Irias for Marconi Mapper
+ * 
  * HAS:
  * 1. All GLatLng replaced with google.maps.LatLng
  * 2. Width and Opacity on PolyLines switched with Opacity and Width
@@ -18,6 +20,7 @@
  * 		In the draw function, we MUST reset the "temp" arrays INSIDE the for...loop of the original lat lines so that it can be emptied and used for new polyline paths
  * 		The usng_georectangle class is fine, the zone marker function just can't be called before the full zone class is instantiated and added
  * 9. Markers for zone labels are working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
+ * 10. New USNGGraticule method partially implemented
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
@@ -28,12 +31,124 @@
  * 4. New labeled markers - have to keep them from doubling up on redraws  
  * 5. Performance: with redraws (?) on all overlays, just zone markers makes the map chug on a zoom event.
  *    Need to be able to only redraw if necessary.
+ * 6. Need to replace USNG functions with usngfunc
+ * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version
  * 	
  * */
 
 
 var x1;
 var y1;
+
+/////////////////////// begin class USNG Graticule //////////////////////////////////////////
+function USNGGraticule(map,gridStyle) {
+    var that=this;
+    
+    //alert("usng grid constructor");
+    if(!map  ) {
+        throw "Must supply map to the constructor";
+    }
+    this._map = map;
+    
+    this.gridStyle = gridStyle; //Xavier original. Below is attempt to reset to Larry's style
+    //this.gridStyle = {majorLineColor:zonelinecolor,majorLineOpacity:zonelineopacity,majorLineWeight:zonelinewidth};
+    this.setMap(map);  // will trigger a draw()
+    
+    // Google API should call draw() on its own at various times but often fails to
+    // so put our own listeners in.  
+    
+    this.resizeListener = google.maps.event.addDomListener(window, "resize", function() {that.draw();});  
+    this.dragListener = google.maps.event.addListener(map, 'dragend', function() { that.draw(); });
+              
+}
+
+
+USNGGraticule.prototype = new google.maps.OverlayView();
+
+//dummy onAdd function. Like Larry, Xavier had this as an empty function, although Larry did this for each type
+USNGGraticule.prototype.onAdd= function() {};
+
+USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
+    try {
+        if( this.zoneLines ) {
+            this.zoneLines.remove();
+            this.zoneLines = null;
+        }
+        if( this.grid100k) {
+            this.grid100k.remove();
+            this.grid100k = null;
+        }
+
+        if( this.grid1k) {
+            this.grid1k.remove();
+            this.grid1k = null;
+        }
+
+        if( this.grid100m ) {
+            this.grid100m.remove();
+            this.grid100m = null;
+        }
+        
+        if( leaveHandlersAlone!==true ) {
+            google.maps.event.removeListener(this.resizeListener);
+            google.maps.event.removeListener(this.dragListener);
+        }
+        
+    
+	}
+    catch(e) {
+        console.log("Error " + e + " removing USNG graticule");
+    }
+}
+
+USNGGraticule.prototype.draw = function() {
+    try {
+        this.onRemove(true);
+
+        console.log("drawing USNG grid, zoom is " + this._map.getZoom() );
+
+        this.view = new usngviewport(this._map);
+
+        var zoomLevel = this._map.getZoom();  // zero is whole world, higher numbers (to about 20 are move detailed)
+
+        if( zoomLevel < 6 ) {   // zoomed way out
+            this.zoneLines = new USNGZonelines(this._map, this.view, this,
+            this.gridStyle.majorLineColor, this.gridStyle.majorLineWeight, this.gridStyle.majorLineOpacity);
+        }
+        else {  // close enough to draw the 100km lines
+            this.grid100k = new Grid100klines(this._map, this.view, this,
+                this.gridStyle.semiMajorLineColor,
+                this.gridStyle.semiMajorLineWeight,
+                this.gridStyle.semiMajorLineOpacity);
+            
+            if(zoomLevel > 10 ) {    // draw 1k lines also if close enough
+                this.grid1k = new Grid1klines(this._map, this.view, this,
+                this.gridStyle.minorLineColor,
+                this.gridStyle.minorLineWeight,
+                this.gridStyle.minorLineOpacity);
+                
+                if( zoomLevel > 13 ) {   // draw 100m lines if very close
+                    this.grid100m = new Grid100mlines(this._map, this.view, this,
+                    this.gridStyle.fineLineColor,
+                    this.gridStyle.fineLineWeight,
+                    this.gridStyle.fineLineOpacity);
+                }
+            }
+        }
+    }
+    catch(ex) {
+        console.log("Error " + ex + " drawing USNG graticule");
+    }
+};
+
+//not sure of the purpose here so temp comment out
+/*
+USNGGraticule.prototype.gridValueFromPt = function(latLongPt) {
+    return USNG.LLtoUSNG(latLongPt.lat(), latLongPt.lng());
+};
+*/
+
+/////////////////////// end class USNG Graticule //////////////////////////////////////////
 
 
 ///////////////////////  begin class usngviewport ///////////////////////////////////////
@@ -48,7 +163,7 @@ var y1;
 function usngviewport(mygmap) {   // mygmap is an instance of google.map, created by calling function
 
    // arrays that hold the key coordinates...corners of viewport and UTM zone boundary intersections
-   //console.log("Inside the usngviewport function.");
+   console.log("Inside the usngviewport function.");
    this.lat_coords = new Array();
    this.lng_coords = new Array();
 
@@ -158,402 +273,352 @@ usngviewport.prototype.geoextents = function() {
 ////////////////////// end class usngviewport /////////////////////////////////
 
 
-///////////////////// class to draw UTM zone lines /////////////////////////
+
+///////////////////// class to draw UTM zone lines/////////////////////////
+
 // zones are defined by lines of latitude and longitude, normally 6 deg wide by 8 deg high
 // northern-most zone is 12 deg high, from 72N to 84N
 
-// usngzonelines is implemented as a Google Maps custom overlay
 
-function usngzonelines(viewport,color,opacity,width,map) { 
-   //establish the passed variables for the custom overlay
-   this.view = viewport;
-   this.color = color;
-   this.opacity = opacity;
-   this.map_ = map;
-   this.width = Math.floor(width*(3/4));
-   
-	// Explicitly call setMap on this overlay. Custom overlay won't work without this,
-	// even thought you have to call setMap again on the polylines
-	this.setMap(map); 
-   
-}
-
-usngzonelines.prototype = new google.maps.OverlayView();
-
-//Larry originally had all of these elements inside an initialize function, attempting to switch to onAdd
-//Gmaps doesn't pass any parameters into this function in their example. They say the onAdd() method within your prototype
-//attaches the overlay to the map. and OverlayView.onAdd() will be called when the map is ready for the overlay to be attached..
-//Firebug says 'map' is undefined inside this function, so this.map_ isn't used here like Larry had it
-usngzonelines.prototype.onAdd = function(map) {
-   console.log("We have started the onAdd function for usngzonelines.");
-   this.lat_line = new Array();
-   this.lng_line = new Array();
-   this.latlines = this.view.lats();
-   this.lnglines = this.view.lngs();
-   this.gzd_rectangles = this.view.geoextents();
-   //console.log("Inside onAdd function, GZD rectangle center lat is: "+this.gzd_rectangles[i].getCenter().lat());
-   this.marker = new Array();
-
-	//console.log("Latitude lines are: "+this.latlines.toString());
-	//console.log("Longitude lines are: "+this.lnglines.toString());
-   
-   //should we put the loops back here that establish the lat and long polyline arrays?
-   //Then those arrays could be iterated through in the draw function
-   
-}  // function onAdd
-
-// google custom overlays require a draw method method within your prototype,
-// that handles the visual display of your object. OverlayView.draw() will be called when the object is first displayed as well.
-// So, where do we put which code loops?
-usngzonelines.prototype.draw = function () {
-   console.log("Launching the draw function.");
-   this.map_ = map;
-   for (var i=1; i<this.latlines.length; i++) {
-   	
-   	  this.temp1 = [];
-	      for (var j=0; j<this.lnglines.length; j++) {   
-	         this.temp1[j] = new google.maps.LatLng(this.latlines[i],this.lnglines[j]);
-	          //console.log("Lat lines j="+j);
-	          //addMarker(this.temp1[j]); //this works to show markers at all the intersections
-	      }
-      //console.log("Inside the draw function latlines loop, temp array is"+this.temp1.toString().slice(0,15));
-      
-      this.lat_line[i-1] = new google.maps.Polyline({path:this.temp1,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width}); 
-      this.lat_line[i-1].setMap(this.map_);
-   } //end for loop of each lat line
-  
-   //for each longitude line, including all special cases
-   for (i=0; i<this.lnglines.length; i++) {
-     this.temp2 = [];
-     this.temp3 = [];
-       // deal with norway special case
-       if (this.lnglines[i] == 6) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==56) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]<56 || (this.latlines[j]>64 && this.latlines[j]<72)) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>56 && this.latlines[j]<64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]==64) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             // Svlabard special case
-             else if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
-             }
-             else {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
+function USNGZonelines(map, viewport, parent) {
+    try {
+       this._map = map;
+       this.view = viewport;
+       this.parent=parent;
        
+
+       this.lat_line = [];
+       this.lng_line = [];
+
+       var latlines = this.view.lats();
+       var lnglines = this.view.lngs();
+       this.gzd_rectangles = this.view.geoextents();
+       this.marker = [];
+       var temp = [];
+       var i;
+
+       // creates polylines corresponding to zone lines using arrays of lat and lng points for the viewport
+       for( i = 1 ; i < latlines.length ; i++) {
+           temp=[];
+
+           for (var j = 0 ; j < lnglines.length; j++) {
+               temp.push(new google.maps.LatLng(latlines[i],lnglines[j]));
+           }
+
+
+           this.lat_line.push(new google.maps.Polyline({
+              path: temp, 
+              strokeColor: this.parent.gridStyle.majorLineColor,
+              strokeWeight: this.parent.gridStyle.majorLineWeight,
+              strokeOpacity: this.parent.gridStyle.majorLineOpacity, map: this._map
+            }));
        }
+
+       
+
+       for( i = 1 ; i < lnglines.length ; i++ ) {
+           // need to reset array for every line of longitude!
+           temp = [];
+
+           // deal with norway special case at longitude 6
+           if( lnglines[i] == 6 ) {
+              for( j = 0 ; j < latlines.length ; j++ ) {
+                 if (latlines[j]==56) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]-3));
+                 }
+                 else if( latlines[j]<56 || (latlines[j]>64 && latlines[j]<72)) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                 }
+                 else if (latlines[j]>56 && latlines[j]<64) {
+                    temp.push(new google.maps.LatLng(latlines[j],lnglines[i]-3));
+                 }
+                 else if (latlines[j]==64) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]-3));
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                 }
+                 // Svlabard special case
+                 else if (latlines[j]==72) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]+3));
+                 }
+                 else if (latlines[j]<72) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                 }
+                 else if (latlines[j]>72) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]+3));
+                  }
+                 else {
+                    temp.push(new google.maps.LatLng(latlines[j],lnglines[i]-3));
+                 }
+                }
+       
+            }
+
+           // additional Svlabard cases
+
+           // lines at 12,18 and 36 stop at latitude 72
+           else if (lnglines[i] == 12 || lnglines[i] == 18 || lnglines[i] == 36) {
+              for (j = 0; j < latlines.length; j++) {
+                 if (latlines[j]<=72) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                 }
+              }
+          }
+          else if (lnglines[i] == 24) {
+              for (j=0; j < latlines.length ; j++) {
+                 if (latlines[j] == 72) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]-3));
+                 }
+                 else if ( latlines[j] < 72) {
+                    temp.push(new google.maps.LatLng(latlines[j],lnglines[i]));
+                 }
+                 else if ( latlines[j] > 72) {
+                    temp.push(new google.maps.LatLng(latlines[j],lnglines[i]-3));
+                 }
+              }
+          }
+           else if (lnglines[i] == 30) {
+              for ( j = 0 ; j < latlines.length ; j++) {
+
+                 if( latlines[j] == 72 ) {
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+                    temp.push(new google.maps.LatLng(latlines[j], lnglines[i]+3));
+                 }
+                 else if ( latlines[j] < 72 ) {
+                    temp.push(new google.maps.LatLng( latlines[j], lnglines[i]));
+                 }
+                 else if ( latlines[j] > 72 ) {
+                    temp.push(new google.maps.LatLng( latlines[j], lnglines[i]+3));
+                 }
+              }
+          }
       
-       // additional Svlabard cases
-       else if (this.lnglines[i] == 12) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
+          // normal case, not in Norway or Svalbard
+          else {
+              for( j = 0 ; j < latlines.length; j++) {
+                  temp.push(new google.maps.LatLng(latlines[j], lnglines[i]));
+              }
           }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
-       else if (this.lnglines[i] == 18) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-          }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
-       else if (this.lnglines[i] == 24) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]-3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]-3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
-       else if (this.lnglines[i] == 30) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]+3);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-             else if (this.latlines[j]>72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]+3);
-             }
-          }
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
-       else if (this.lnglines[i] == 36) {
-          for (j=0,k=0; j<this.latlines.length; j++) {
-             if (this.latlines[j]==72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j], this.lnglines[i]);
-             }
-             else if (this.latlines[j]<72) {
-                this.temp3[k++] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
-             }
-          }
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.temp3[k++] = null;
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp3,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
 
-       // normal case, not in Norway or Svalbard
-       else {
-          for (j=0; j<this.latlines.length; j++) {
-                this.temp2[j] = new google.maps.LatLng(this.latlines[j],this.lnglines[i]);
+          this.lng_line.push(new google.maps.Polyline({path:temp, 
+              strokeColor: this.parent.gridStyle.majorLineColor,
+              strokeWeight: this.parent.gridStyle.majorLineWeight,
+              strokeOpacity: this.parent.gridStyle.majorLineOpacity,
+              map: this._map}));
+          
+        }  // for each latitude line
+
+
+        this.zonemarkerdraw();
+    }
+    catch(ex) {
+        throw("Error drawing USNG zone boundaries: " + ex);
+    }
+}  // constructor
+
+USNGZonelines.prototype.remove = function() {
+    try {
+        var i;
+
+        if( this.lat_line ) {
+
+          for(i=0; i< this.lat_line.length; i++) {
+              this.lat_line[i].setMap(null);
           }
-          this.lng_line[i-1] = new google.maps.Polyline({path:this.temp2,strokeColor:this.color,strokeOpacity:this.opacity,strokeWeight:this.width});
-      }
-	//console.log("Inside the draw function longlines loop, temp array is"+this.temp2.toString().slice(0,50));
-	this.lng_line[i-1].setMap(this.map_);
-   }  // for each longitude line
-   
-   this.zonemarkerdraw();
-   console.log("End draw function for zone lines.");
-}
+          this.lat_line = null;
+        }
 
-usngzonelines.prototype.onRemove = function() {
-   // remove latitude lines
-   
-   for (var i=0; i<this.lat_line.length; i++) {
-      this.lat_line[i].setMap(null);
-   }
+        if( this.lng_line ) {
 
-   // remove longitude lines
-   for (i=0; i<this.lng_line.length; i++) {
-      this.lng_line[i].setMap(null);
-   }
-   // remove center-point label markers
-   if (this.marker) {
-      for (i=0; i<this.marker.length; i++) {
-         this.marker[i].setMap(null);
-      }
-   }
-   
+            for(i=0; i< this.lng_line.length; i++) {
+                this.lng_line[i].setMap(null);
+            }
+            this.lng_line = null;
+        }
+
+        // remove center-point label markers
+        if (this.marker) {
+            for (i=0; i<this.marker.length; i++) {
+               this.marker[i].parentNode.removeChild(this.marker[i]);
+            }
+            this.marker=null;
+        }
+    }
+    catch(ex) {
+        alert("Error removing zone lines: " + ex);
+    }
 } 
 
+
 // zone label markers
-//Can call this zonemarkerdraw function from inside the zone lines draw function, but not from map.js
-//  Otherwise the gzd_rectangles aren't in place yet 
-usngzonelines.prototype.zonemarkerdraw = function() {
-   for (var i=0; i<this.gzd_rectangles.length; i++) {
-      var zlat = this.gzd_rectangles[i].getCenter().lat();
-      var zlng = this.gzd_rectangles[i].getCenter().lng();
-      var zLatLng = new google.maps.LatLng(zlat,zlng);
-      //var lnglat = {lon:zlng,lat:zlat}; //don't need if {} below in fromLonLat works
-      var z = usngfunc.fromLonLat({lon:zlng,lat:zlat}, 1); //simpler to pass in a {} variable
-      z = z.substring(0,3);
-	  console.log("Adding marker for zone: "+z);
-       // labeled marker
-       this.marker[i] = new MarkerWithLabel({
-	       position: zLatLng,
-	       clickable:false,
-	       //icon: {}, //this creates a bunch of network errors, even though this is how the developers suggest no icon
-	       icon: "images/rectangle.png",
-	       labelContent: z,
-	       labelAnchor: new google.maps.Point(12, 17),
-       	   labelClass: "labels", // the CSS class for the label
-           labelInBackground: false,
-           labelStyle: {opacity: 0.75}
-       });
-       this.marker[i].setMap(this.map_);
-   }
+USNGZonelines.prototype.zonemarkerdraw = function() {
+    function makeLabel(parent, latLong, labelText, className) {
+        try {
+            
+            var pixelPoint = parent.getProjection().fromLatLngToDivPixel(latLong);
+
+            var d = document.createElement("div");
+            var x = pixelPoint.x;
+            var y = pixelPoint.y;
+            var height=20;
+            var width=50;
+
+            d.style.position = "absolute";
+            d.style.width  = "" + width + "px";
+            d.style.height = "" + height + "px";
+
+            d.innerHTML = labelText;
+
+            if( className ) {
+                d.className = className;
+            }
+            else {
+                d.style.color = "#000000";
+                d.style.fontFamily='Arial';
+                d.style.fontSize='small';
+                d.style.backgroundColor = "white";
+                d.style.opacity=0.5;
+            }
+
+            d.style.textAlign = "center";
+            d.style.verticalAlign = "middle";
+            d.style.left = (x-width*.5).toString() + "px";
+            d.style.top  = (y-height*.5).toString() + "px";
+
+            if( parent && parent.getPanes && parent.getPanes().overlayLayer ) {
+                parent.getPanes().overlayLayer.appendChild(d);
+            }
+            else {
+                console.log("Warning: parent is " + parent + " drawing label");
+            }
+
+            return d;
+        }
+        catch(ex) {
+            throw "Error making zone label " + labelText + ": " + ex;
+        }
+    }
+
+    for (var i = 0 ; i <this.gzd_rectangles.length; i++ ) {
+
+        var zonemarkerlat = this.gzd_rectangles[i].getCenter().lat();
+
+        var zonemarkerlng = this.gzd_rectangles[i].getCenter().lng();
+
+        // labeled marker
+        var z = usngfunc.fromLonLat({lon:zonemarkerlng,lat:zonemarkerlat},1);
+
+        z = z.substring(0,3);
+
+        this.marker.push(makeLabel(this.parent, this.gzd_rectangles[i].getCenter(), z, this.parent.gridStyle.majorLabelClass));
+        
+    }
 }  
 
-usngzonelines.prototype.zonemarkerremove = function() {
-   // remove center-point label markers
-   if (this.marker) {
-      for (i=0; i<this.marker.length; i++) {
-         this.map_.removeOverlay(this.marker[i]);
-      }
-   }
-}
-
-/////////////////end of class that draws zone lines and markers///////////////////////////////
+/////////////////end of class that draws zone lines///////////////////////////////
 
 ///////////////////// class to draw 100,000-meter grid lines/////////////////////////
 	
-function grid100klines(viewport,color,width,opacity) { 
-   this.view = viewport
-   this.color = color
-   this.width = width
-   this.opacity = opacity
-   this.zonelines = new Array()
-   this.zones = new Array()
-   this.gridcell_100k = new Array()
+function Grid100klines(map, viewport, parent) {
+    this._map = map;
+    this.view = viewport;
+    this.parent = parent;
+    
+    this.Gridcell_100k = [];
+
+    
+    // zone lines are also the boundaries of 100k lines...separate instance of this class for 100k lines
+    this.zonelines = new USNGZonelines(this._map, this.view, parent);
+    
+    this.zones = this.view.geoextents();
+
+    for (var i=0; i < this.zones.length; i++) {
+        var newCell = new Gridcell(this._map, this.parent, this.zones[i],100000);
+
+        this.Gridcell_100k.push(newCell);
+
+        newCell.drawOneCell();
+    }
 }
 
-grid100klines.prototype = new google.maps.OverlayView();
+Grid100klines.prototype.remove = function() {
+    try {
+        if( this.zonelines ) {
+           this.zonelines.remove();
+        }
 
-grid100klines.prototype.initialize = function(map) {
-   this.map = map
-   // zone lines are also the boundaries of 100k lines...separate instance of this class for 100k lines
-   this.zonelines = new usngzonelines(this.view,this.color,this.opacity,this.width)
-   this.map.addOverlay(this.zonelines)
-   this.zonelines.zonedraw()
+        if( this.Gridcell_100k ) {
+            for (var i=0; i < this.Gridcell_100k.length; i++) {
+                this.Gridcell_100k[i].remove();
+            }
 
-   this.zones = this.view.geoextents()
-   for (var i=0; i<this.zones.length; i++) {
-     this.gridcell_100k[i] = new gridcell(this.map, this.zones[i],100000)
-     this.gridcell_100k[i].drawOneCell()
-   }
-
+            this.Gridcell_100k = null;
+        }
+    }
+    catch(ex) {
+        alert("Error " + ex + " trying to remove 100k gridlines");
+    }
 }
 
-grid100klines.prototype.onRemove = function() {
-   this.map.removeOverlay(this.zonelines)
-   for (var i=0; i<this.zones.length; i++) {
-      this.gridcell_100k[i].remove()
-   }
-}
-
-grid100klines.prototype.copy = function() {  }
-
-grid100klines.prototype.redraw = function() {  }
-
-grid100klines.prototype.draw100k = function() {
-      
-}
-
-
-/////////////end class grid100klines ////////////////////////////////////////
-
-
+/////////////end class Grid100klines ////////////////////////////////////////
 
 ///////////////////// class to draw 1,000-meter grid lines/////////////////////////
 
-function grid1klines(viewport,color,width,opacity) { 
-   this.view = viewport
-   this.color = color
-   this.width = width
-   this.opacity = opacity
-   this.zonelines = new Array()
-   this.zones = new Array()
-   this.gridcell_1k = new Array()
+function Grid1klines(map, viewport, parent) {
+    this._map = map;
+    this.view = viewport;
+    this.parent = parent;
+    
+
+    this.Gridcell_1k = [];
+   
+    this.zones = this.view.geoextents();
+
+    for (var i = 0 ; i < this.zones.length ; i++ ) {
+        this.Gridcell_1k[i] = new Gridcell(this._map, this.parent, this.zones[i], 1000);
+        this.Gridcell_1k[i].drawOneCell();
+    }
 }
 
-grid1klines.prototype = new google.maps.OverlayView();
-
-grid1klines.prototype.initialize = function(map) {
-   this.map = map
-   // zone lines are also the boundaries of 1k lines...separate instance of this class for 1k lines
-//   this.zonelines = new usngzonelines(this.view,this.color, this.width+2, this.opacity)
-//   this.map.addOverlay(this.zonelines)
-//   this.zonelines.zonedraw()
-
-   this.zones = this.view.geoextents()
-   for (var i=0; i<this.zones.length; i++) {
-       this.gridcell_1k[i] = new gridcell(this.map, this.zones[i],1000)
-     this.gridcell_1k[i].drawOneCell()
-   }
-
-}
-
-grid1klines.prototype.onRemove = function() {
-
-   // remove zone lines
-   this.map.removeOverlay(this.zonelines)
-   // remove 1k grid lines
-   for (var i=0; i<this.zones.length; i++) {
-      this.gridcell_1k[i].remove()
-   }
-}
-
-grid1klines.prototype.copy = function() {  }
-
-grid1klines.prototype.redraw = function() {  }
-
-grid1klines.prototype.draw1k = function() {
-      
+Grid1klines.prototype.remove = function() {
+    // remove 1k grid lines
+    for (var i=0; i<this.zones.length; i++) {
+       this.Gridcell_1k[i].remove();
+    }
+    this.Gridcell_1k = null;
 }
 
 
-/////////////end class grid1klines ////////////////////////////////////////
+/////////////end class Grid1klines ////////////////////////////////////////
 
 
 ///////////////////// class to draw 100-meter grid lines/////////////////////////
 
-function grid100mlines(viewport,color,width,opacity) { 
-   this.view = viewport
-   this.color = color
-   this.width = width
-   this.opacity = opacity
-   this.zonelines = new Array()
-   this.zones = new Array()
-   this.gridcell_100m = new Array()
+function Grid100mlines(map, viewport, parent) {
+    this._map = map;
+    this.view = viewport;
+    this.parent = parent;
+    
+
+    this.Gridcell_100m = [];
+    this.zones = this.view.geoextents();
+
+    for (var i=0; i<this.zones.length; i++) {
+       this.Gridcell_100m[i] = new Gridcell(this._map, this.parent, this.zones[i], 100);
+       this.Gridcell_100m[i].drawOneCell();
+    }
 }
 
-grid100mlines.prototype = new google.maps.OverlayView();
-
-grid100mlines.prototype.initialize = function(map) {
-   this.map = map
-   this.zones = this.view.geoextents()
-   for (var i=0; i<this.zones.length; i++) {
-       this.gridcell_100m[i] = new gridcell(this.map, this.zones[i],100)
-     this.gridcell_100m[i].drawOneCell()
-   }
-
-}
-
-grid100mlines.prototype.onRemove = function() {
-
-   // remove zone lines
-   this.map.removeOverlay(this.zonelines)
+Grid100mlines.prototype.remove = function() {
    // remove 100-m grid lines
-   for (var i=0; i<this.zones.length; i++) {
-      this.gridcell_100m[i].remove()
+   for (var i = 0 ; i < this.zones.length ; i++) {
+      this.Gridcell_100m[i].remove();
    }
 }
 
-grid100mlines.prototype.copy = function() {  }
-
-grid100mlines.prototype.redraw = function() {  }
-
-grid100mlines.prototype.draw100m = function() {
-      
-}
-
-
-/////////////end class grid100mlines ////////////////////////////////////////
+/////////////end class Grid100mlines ////////////////////////////////////////
 
 
 ///////////////////////// class usng_georectangle//////////////////////////
