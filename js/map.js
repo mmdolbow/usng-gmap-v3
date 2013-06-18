@@ -174,6 +174,11 @@ function initialize() {
 		}
 	});
 	
+    if (debug) {
+       document.getElementById('gridcheckbox').style.display="inline-block";
+    } else {
+        document.getElementById('gridcheckbox').style.display="none";
+    } 
 
   }
 
