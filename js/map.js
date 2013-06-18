@@ -57,7 +57,7 @@
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
  * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
  * 7. A new marker when a USNG search is performed
- * 8. USNG overlays still need work - see gridlines.js
+ * 8. Cleanup of zone option, styles, etc, when implementing single graticule style
  * */
 
 //Debug variable. Set to true while developing, false when testing
@@ -75,7 +75,9 @@ var autocOptions = {
 	  types: ['geocode']
 	};
 var disableClickListener = false;
-//Objects for storing USNG overlay lines
+
+//******************Objects for storing USNG overlay lines
+//Probably won't need these if we implement the graticule style
 var zoneLines = null;
 var lines100k = null;
 var lines1k = null;
@@ -97,6 +99,32 @@ var k1_lineopacity = 1;
 var m100_linecolor = "#ff6633";
 var m100_linewidth = 1;
 var m100_lineopacity = 1;
+
+//*********USNG Graticule Styles
+//Object for USNG Graticule
+var graticule = null;
+
+// grid style passed to USNGGraticule
+var gridstyle = {
+    majorLineColor: "#0000ff",
+    majorLineWeight: 3,
+    majorLineOpacity: 0.5,
+    semiMajorLineColor: "#0000ff",
+    semiMajorLineWeight: 2,
+    semiMajorLineOpacity: 0.5,
+    minorLineColor: "blue",
+    minorLineWeight: 1,
+    minorLineOpacity: 0.3,
+    fineLineColor: "#ff6633",
+    fineLineWeight: 1,
+    fineLineOpacity: 0.3,
+
+    majorLabelClass:     "majorGridLabel",
+    semiMajorLabelClass: "semiMajorGridLabel",
+    minorLabelClass:     "minorGridLabel",
+    fineLabelClass:      "fineGridLabel"
+};
+
 
 /* ****************
  * Initial Functions for map setup
@@ -146,17 +174,7 @@ function initialize() {
 		}
 	});
 	
-	if (debug) {
-		// add listener to detect change in zoom level
-		google.maps.event.addListener(map,'zoom_changed', function() {
-		   var newzLev=map.getZoom();
-		   displayGridOptions(newzLev);
-		   });
-	
-	  displayGridOptions(mapOptions.zoom);
-	} else {
-		displayGridOptions(0);
-	}
+
   }
 
 
@@ -278,44 +296,18 @@ function mapClickListenerToggle() {
 	}
 }
 
-/* **************
+/* **************************
  * Grid and Overlay Functions
- */
-//Control what grids the user is given an option to display...function of zoom level
-function displayGridOptions(zLev) {
-    // Define different zoom levels for turning on and off input boxes
-   
-    if (zLev>=4) {
-       document.getElementById('zonecheckbox').style.display="inline-block";
-    } else {
-    	document.getElementById('zonecheckbox').style.display="none";
-    } 
-    
-    if (zLev>=7) {
-       document.getElementById('grid100kcheckbox').style.display="inline-block";
-    } else {
-    	document.getElementById('grid100kcheckbox').style.display="none";
-    } 
-    
-    if (zLev>=13) {
-       document.getElementById('grid1kcheckbox').style.display="inline-block";
-    } else {
-    	document.getElementById('grid1kcheckbox').style.display="none";
-    }
-       
-    if (zLev>=16) {
-       document.getElementById('grid100mcheckbox').style.display="inline-block";
-    } else {
-    	document.getElementById('grid100mcheckbox').style.display="none";
-    }
-}
+ * **************************
+ */ 
 
 
-// response to check box that allows user to turn zone lines on and off
-function toggleZoneDisp() {
+// response to check box that allows user to turn grid lines on and off
+// Can probably consolidate this function and the next
+function toggleGridDisp() {
    if (map.zoneon == false) { 
         map.zoneon=true; 
-        curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
+        //curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
         //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
         refreshZONES();
    }
@@ -328,9 +320,9 @@ function toggleZoneDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-   console.log("Zone lines being added.");
-   zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
-   
+   console.log("Zone lines being added via refreshZONES.");
+   //zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
+   graticule = new USNGGraticule(map,gridstyle);
    /*if (map.getZoom() < 10 || map.grid100kon==false) { 
       zoneLines.zonemarkerdraw();
    }*/
