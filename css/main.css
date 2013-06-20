@@ -63,6 +63,10 @@ input[type=submit]{
 	vertical-align: middle;
 }
 
+#drawing {
+	display:none;
+}
+
 .labels {
   	color: black;
     /*background-color: red;*/

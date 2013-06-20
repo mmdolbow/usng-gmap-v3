@@ -43,6 +43,7 @@
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 11. Functions to toggle zone and grid lines, which call functions in gridlines.js
+ * 12. Replacement of gridlines with ArcGIS Server (ArcGIS Online) USNG service. This is likey an interim solution
  * 
  * NEEDS:
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
@@ -61,7 +62,7 @@
  * */
 
 //Debug variable. Set to true while developing, false when testing
-var debug = false;
+var debug = true;
 
 //Global variables for map.js
 var map,geocoder,curr_usng_view;
@@ -75,6 +76,11 @@ var autocOptions = {
 	  types: ['geocode']
 	};
 var disableClickListener = false;
+
+//Variables for ArcGIS Server USNG service endpoint, used with arcgislink code
+var agsurl = 'http://maps1.arcgisonline.com/ArcGIS/rest/services/NGA_US_National_Grid/MapServer';
+var dynamap = new gmaps.ags.MapOverlay(agsurl, { opacity: 0.7 });
+
 
 //******************Objects for storing USNG overlay lines
 //Probably won't need these if we implement the graticule style
@@ -173,6 +179,15 @@ function initialize() {
 		 	reverseGeoCode(event.latLng);
 		}
 	});
+	
+	//listeners for AGS dynamap
+	  google.maps.event.addListener(dynamap, 'drawstart', function(){
+	    document.getElementById('drawing').style.display="inline-block";
+	  });
+	  google.maps.event.addListener(dynamap, 'drawend', function(){
+	    document.getElementById('drawing').style.display="none";
+	  });
+
 	
     if (debug) {
        document.getElementById('gridcheckbox').style.display="inline-block";
@@ -314,11 +329,13 @@ function toggleGridDisp() {
         map.zoneon=true; 
         //curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
         //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
-        refreshZONES();
+        //refreshZONES();
+        dynamap.setMap(map);
    }
    else {   
-       zoneLines.setMap(null);
+       //zoneLines.setMap(null);
        map.zoneon = false; 
+       dynamap.setMap(null);
    }
  //   alert("in toggleZoneDisp, property zoneon="+map.zoneon)
 }

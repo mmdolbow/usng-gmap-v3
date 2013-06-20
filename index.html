@@ -8,6 +8,7 @@
     	@import "css/main.css";
     	</style>
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyA2q8pD_YjS70CpCcejLUgnL8AdTd6qFtk&libraries=places&sensor=false"></script>
+    <script type="text/javascript" src="//gmaps-utility-gis.googlecode.com/svn/trunk/arcgislink/src/arcgislink_compiled.js"></script>
     <script type="text/javascript" src="js/gridlines.js"></script>
     <script type="text/javascript" src="js/usng2.js"></script>
     <!-- Final document should bootstrap usng2.js from github if possible
@@ -42,6 +43,7 @@
 		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address</p>
 		  <p id="rdoUSNG"><input id="radioUSNG" type="radio" name="searchtype" onclick="setSearchType('usng');" value="USNG"/>USNG</p> <br />
 		  <div id="gridcheckbox"><input type="checkbox" name="gridlines" onclick="toggleGridDisp();" />Grid Lines</div>
+		  <div id="drawing"><img src="images/loading.gif" alt="loading"></div>
 		</form>
     </div>
     <!-- LET'S TRY A SINGLE FORM/DIV 

@@ -32,7 +32,8 @@
  * 5. Performance: with redraws (?) on all overlays, just zone markers makes the map chug on a zoom event.
  *    Need to be able to only redraw if necessary.
  * 6. Need to replace USNG functions with usngfunc
- * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version
+ * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
+ *    in particular of UTM zone labels.
  * 	
  * */
 
@@ -619,6 +620,621 @@ Grid100mlines.prototype.remove = function() {
 }
 
 /////////////end class Grid100mlines ////////////////////////////////////////
+
+
+///////////////////// class to calculate and draw "Gridcell" grid lines ///////////////////////
+
+// constructor
+function Gridcell(map, parent, zones,interval) {
+    if(!map) {
+        throw "map argument not supplied to Gridcell constructor";
+    }
+    if(!parent) {
+        // TODO -- check some properties of parent to make sure it's real
+        throw "parent USNG grid not supplied to Gridcell constructor";
+    }
+
+    this._map   = map;
+    this.parent = parent;   // provides access to gridStyle for example
+    this.slat   = zones.slat;
+    this.wlng   = zones.wlng;
+    this.nlat   = zones.nlat;
+    this.elng   = zones.elng;
+
+    this.interval   = interval;
+    this.gridlines  = [];
+    this.label_100k = [];
+    this.label_1k   = [];
+    this.label_100m = [];
+}
+
+// instance of one utm cell
+Gridcell.prototype.drawOneCell = function() {
+    try {
+
+        var utmcoords = [];
+        
+        var i,j,k,m,n,p,q;
+
+        //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original
+        usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},1);
+
+        
+        var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
+        var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
+
+
+       // USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
+		usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},1);
+        
+        var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval) + 10 * this.interval;
+        var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval) + 10 * this.interval;
+
+        
+        if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
+            throw("Error, northeast of cell less than southwest");
+        }
+        
+        var geocoords    = null;
+        var temp         = null;
+        var gr100kCoord  = null;
+        var northings    = [];
+        var eastings     = [];
+
+        // set density of points on grid lines as space in meters between points
+        // case 1: zoomed out a long way; not very dense
+        var precision;
+
+        if (this._map.getZoom() < 12 ) {
+            precision = 10000;
+        }
+        // case 2: zoomed in a long way
+        else if (this._map.getZoom() > 15) {
+           precision = 100;
+        }
+        // case 3: in between, zoom levels 12-15
+        else {
+           precision = 1000;
+        }
+
+        precision *= 10;  // experiment here with a speedup multiplier
+        if( precision > this.interval * 5) {
+            precision = this.interval * 5;
+        }
+        // ensure at least two vertices for each segment
+        if( precision > ne_utm_n - sw_utm_n ) {
+            precision = ne_utm_n - sw_utm_n;
+        }
+        if( precision > ne_utm_e - sw_utm_e ) {
+            precision = ne_utm_e - sw_utm_e;
+        }
+
+        var skipFactor=1;
+
+        if( this.interval==1000 && this._map.getZoom() == 11) {
+            skipFactor=2;
+        }
+
+        // for each e-w line that covers the cell, with overedge
+        northings[0] = this.slat;
+        
+        if( !northings[0]) {
+            throw "Southern latitude is " + northings[0];
+        }
+        
+        k=1;
+        for (i=sw_utm_n, j=0 ; i < ne_utm_n ; i += this.interval * skipFactor, j++) {
+
+            // collect coords to be used to place markers
+            // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
+            geocoords = USNG.UTMtoLL_GeoPoint(sw_utm_e+(2*this.interval), i, zone);
+
+            if ((geocoords.y > this.slat) && (geocoords.y < this.nlat)) {
+                northings[k++] = geocoords.y;
+            }
+
+            // calculate  line segments of one e-w line
+            temp=[];
+            for( m = sw_utm_e ; m <= ne_utm_e ; m += precision ) {
+                temp.push(USNG.UTMtoLL(m, i, zone));
+            }
+
+            gr100kCoord = [];
+
+            // clipping routine...eliminate overedge lines
+            // case of final point in the array is not covered
+            for( p = 0  ; p < temp.length-1 ; p++ ) {
+              if( this.checkClip(temp, p) ) {
+                  gr100kCoord.push( temp[p] );
+              }
+            }
+
+            if (this.interval == 100000) {
+               this.gridlines.push(new google.maps.Polyline( {
+                   path: gr100kCoord,
+                   strokeColor: this.parent.gridStyle.semiMajorLineColor,
+                   strokeWeight: this.parent.gridStyle.semiMajorLineWeight,
+                   strokeOpacity: this.parent.gridStyle.semiMajorLineOpacity,
+                   map: this._map}));
+
+            }
+            else if (this.interval == 1000) {
+               this.gridlines.push(new google.maps.Polyline( {
+                   path: gr100kCoord,
+                   strokeColor: this.parent.gridStyle.minorLineColor,
+                   strokeWeight: this.parent.gridStyle.minorLineWeight,
+                   strokeOpacity: this.parent.gridStyle.minorLineOpacity,
+                    map: this._map}));
+            }
+            else if (this.interval == 100) {
+               this.gridlines.push(new google.maps.Polyline( {
+                   path: gr100kCoord,
+                   strokeColor: this.parent.gridStyle.fineLineColor,
+                   strokeWeight: this.parent.gridStyle.fineLineWeight,
+                   strokeOpacity: this.parent.gridStyle.fineLineOpacity,
+                   map: this._map}));
+            }
+            
+        }
+
+        northings[k++] = this.nlat;
+        eastings[0]    = this.wlng;
+        k=1;
+
+
+
+        // for each n-s line that covers the cell, with overedge
+        for (i=sw_utm_e; i<ne_utm_e; i+=this.interval * skipFactor,j++) {
+          
+          // collect coords to be used to place markers
+          // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
+          geocoords = USNG.UTMtoLL_GeoPoint(i, sw_utm_n+(2*this.interval), zone);
+
+          if (geocoords.x > this.wlng && geocoords.x < this.elng) {
+              eastings[k++] = geocoords.x;
+          }
+
+          temp=[];
+
+          for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
+
+             temp.push(USNG.UTMtoLL(i, m, zone));
+          }
+          
+          // clipping routine...eliminate overedge lines
+          gr100kCoord  = [];
+          for (p=0 ; p < temp.length-1; p++) {
+              if ( this.checkClip(temp,p)) {
+                  gr100kCoord.push(temp[p]);
+              }
+          }
+
+          if (this.interval == 100000) {
+             this.gridlines.push(new google.maps.Polyline({
+                 path: gr100kCoord,
+                 strokeColor: this.parent.gridStyle.semiMajorLineColor,
+                 strokeWeight: this.parent.gridStyle.semiMajorLineWeight,
+                 strokeOpacity: this.parent.gridStyle.semiMajorLineOpacity,
+                 map: this._map}));
+          }
+          else if (this.interval == 1000) {
+             this.gridlines.push(new google.maps.Polyline( {
+                 path: gr100kCoord,
+                 strokeColor: this.parent.gridStyle.minorLineColor,
+                 strokeWeight: this.parent.gridStyle.minorLineWeight,
+                 strokeOpacity: this.parent.gridStyle.minorLineOpacity,
+                 map: this._map}));
+          }
+          else if (this.interval == 100) {
+              
+              this.gridlines.push(new google.maps.Polyline( {
+                 path: gr100kCoord,
+                 strokeColor: this.parent.gridStyle.fineLineColor,
+                 strokeWeight: this.parent.gridStyle.fineLineWeight,
+                 strokeOpacity: this.parent.gridStyle.fineLineOpacity,
+                 map: this._map}));
+          }
+        }
+
+        eastings[k] = this.elng;
+
+        if (this.interval == 100000) {
+           this.place100kLabels(eastings,northings);
+        }
+        else if (this.interval == 1000) {
+           this.place1kLabels(eastings,northings);
+        }
+        else if (this.interval == 100) {
+           
+           this.place100mLabels(eastings,northings);
+        }
+     }
+     catch(oneCellErr) {
+       throw("Error drawing a cell: " + oneCellErr);
+     }
+}  // end drawOneCell
+
+
+Gridcell.prototype.remove = function() {
+    try {
+        if( this.gridlines ) {
+            for (var i=0; i < this.gridlines.length ; i++) {
+                this.gridlines[i].setMap(null);
+            }
+            this.gridlines=[];
+        }
+        if( this.label_100k ) {
+            for (i=0; this.label_100k[i]; i++) {
+                this.label_100k[i].parentNode.removeChild(this.label_100k[i]);
+            }
+            this.label_100k = [];
+        }
+
+        if( this.label_1k ) {
+            for (i=0; this.label_1k[i]; i++) {
+                this.label_1k[i].parentNode.removeChild(this.label_1k[i]);
+            }
+            this.label_1k=[];
+        }
+
+        if( this.label_100m ) {
+            for (i=0; this.label_100m[i]; i++) {
+                this.label_100m[i].parentNode.removeChild(this.label_100m[i]);
+            }
+            this.label_100m = [];
+        }
+       
+   }
+   catch(ex) {
+       alert("Error removing old USNG graticule: " + ex);
+   }
+}
+
+Gridcell.prototype.makeLabel = function (parentGrid, latLong, labelText, horizontalAlignment, verticalAlignment, className) {
+    var pixelPoint = this.parent.getProjection().fromLatLngToDivPixel(latLong);
+
+    var d = document.createElement("div");
+    var x = pixelPoint.x;
+    var y = pixelPoint.y;
+
+    var height = 30;
+    var width  = 50;
+
+
+    d.style.position = "absolute";
+    d.style.width = "" + width + "px";
+    d.style.height = "" + height + "px";
+
+    if( className ) {
+        d.className = className;
+    }
+    else {
+        d.style.color = "#000000";
+        d.style.fontFamily='Arial';
+        d.style.fontSize='small';
+    }
+
+    d.innerHTML = labelText;
+
+    d.style.textAlign = horizontalAlignment || "center";
+    d.style.verticalAlign = verticalAlignment || "middle";
+    
+    d.style.left = ((horizontalAlignment || "center") == "center"  ? (x-0.5*width)  : x).toString() + "px";
+    d.style.top  = ((verticalAlignment   || "middle") == "middle"  ? (y-0.5*height) : y).toString() + "px";
+
+    parentGrid.getPanes().overlayLayer.appendChild(d);
+
+    return d;
+}
+
+Gridcell.prototype.place100kLabels = function(east,north) {
+    try {
+
+        var zone;
+        var labelText;
+        var latitude;
+        var longitude;
+
+
+        if (this._map.getZoom() > 15) {
+            return; // don't display label when zoomed way in
+        }
+
+        for (var i=0 ; east[i+1] ; i++ ) {
+            
+                
+            for (var j=0; north[j+1]; j++) {
+                // labeled marker
+                //zone = MARCONI.map.getUTMZoneFromLatLong((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 );
+			    zone = usngfunc.fromLonLat({lon:(east[i]+east[i+1])/2,lat:(north[j]+north[j+1])/2},0);
+
+                // lat and long of center of area
+                latitude = (north[j]+north[j+1])/2;
+                longitude = (east[i] + east[i+1])/2;
+                
+                labelText = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 0);
+                
+                // if zoomed way out use a different label
+
+                if (this._map.getZoom() < 10) {
+                    if (zone > 9) {
+                        labelText = labelText.substring(4,6)
+                    }
+                    else {
+                        labelText = labelText.substring(3,5)
+                    }
+                }
+                else {
+                    if (zone > 9) {
+                        labelText = labelText.substring(0,3) + labelText.substring(4,6)
+                    }
+                    else {
+                        labelText = labelText.substring(0,2) + labelText.substring(3,5)
+                    }
+                    
+                }
+
+                this.label_100k.push(this.makeLabel(
+                    this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "middle",
+                    this.parent.gridStyle.semiMajorLabelClass));
+              
+            }
+        }
+    }
+   catch(markerError) {
+       throw("Error placing 100k markers: " + markerError);
+   }
+}
+
+Gridcell.prototype.place1kLabels = function(east,north) {
+   try {
+
+       var latitude;
+       var longitude;
+
+       // at high zooms, don't label the 1k line since it'll get a 100m label'
+       if (this._map.getZoom() > 15) {
+           return;
+       }
+
+       // place labels on N-S grid lines (that is, ladder labels lined up in an E-W row)
+
+       // label x-axis
+       for (var i=1; east[i+1] ; i++) {
+           if( !east[i] || !east[i+1]  ) {
+                //alert("at i=" + i + ", east is " + east[i] + " and " + east[i+1]);
+           }
+            
+          for (var j=1; j<2 && j+1 < north.length ; j++) {
+              if( !north[j] || !north[j+1]  ) {
+                    //alert("at j=" + j + ", northing is " + north[j] + " and " + north[j+1]);
+                }
+                
+               // labeled marker
+               latitude  = (north[j]+north[j+1])/2;
+               longitude = east[i];
+               
+               if(!latitude) {
+                    console.log("Warning: x-axis latitude is " + latitude + " when j=" + j);
+                }
+                if(!longitude) {
+                    console.log("Warning: longitude is " + longitude);
+                }
+                
+               var gridRef = USNG.LLtoUSNG(latitude, longitude);
+               var parts = gridRef.split(" ");
+
+               var x = parseFloat(parts[2].substr(0,2));
+
+               var z = parseFloat(parts[2].substr(2,3));
+                if( z > 500 ) {
+                    x++;
+                    z=0;
+                }
+
+                var labelText = "" + x +"k";
+                var marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "left", "top",
+                    this.parent.gridStyle.minorLabelClass);
+                this.label_1k.push(marker);
+          }
+       }
+
+       // place labels on y-axis
+       for (i=1; i<2; i++) {
+          for (j=1; north[j+1]; j++) {
+               // labeled marker
+               latitude  = north[j];
+               longitude = (east[i]+east[i+1])/2;
+               
+               if(!latitude) {
+                    console.log("Warning: y-axis latitude is " + latitude);
+                }
+                if(!longitude) {
+                    console.log("Warning: y-axis longitude is " + longitude);
+                }
+
+               gridRef  = USNG.LLtoUSNG(latitude,longitude);
+
+               parts = gridRef.split(" ");
+
+               var y = parseFloat(parts[3].substr(0,2));
+               z = parseFloat(parts[3].substr(2,3));
+                if( z > 500 ) {
+                    y++;
+                    z=0;
+                }
+              
+               labelText = "" + y +"k";
+               marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "top",
+                    this.parent.gridStyle.minorLabelClass);
+               this.label_1k.push(marker);
+         }
+       }
+   }
+   catch(ex) {
+       throw("Error placeing 1k markers: " + ex);
+   }
+}  // end place1kLabels()
+
+Gridcell.prototype.place100mLabels = function(east,north) {
+    try {
+
+        // only label lines when zoomed way in
+        if( this._map.getZoom() < 14) {
+            return;
+        }
+
+        if( east.length < 2 || north.length < 2 ) {
+            return;
+        }
+
+        var skipFactor = (this._map.getZoom() > 15 ? 1 : 2);
+        
+        // place "x-axis" labels
+        for (var i = 1; east[i+1] ; i+= 1) {
+            for (var j=1; j< 2; j++) {
+                
+                var gridRef  = USNG.LLtoUSNG((north[j]+north[j+1])/2, east[i]);
+                var parts = gridRef.split(" ");
+
+                var x = parseFloat(parts[2].substr(0,3));
+                var z = parseFloat(parts[2].substr(3,2));
+                if( z > 50 ) {
+                    x++;
+                    z=0;
+                }
+                
+                if( !(x % skipFactor) ) {
+                    
+                    var insigDigits = (skipFactor == 1 || !(x%10) ? "<sup>00</sup>" : "");
+
+                    this.label_100m.push(this.makeLabel(this.parent, new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),
+                        MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
+                        this.parent.gridStyle.fineLabelClass));
+                }
+            }
+        }
+
+        // place "y-axis" labels, don't worry about skip factor since there's plenty of room comparatively
+        for (i=1; i<2; i++) {
+            for (j=1; north[j+1]; j++) {
+                gridRef  = USNG.LLtoUSNG(north[j],(east[i]+east[i+1])/2,4);
+                parts = gridRef.split(" ");
+
+                var y = parseFloat(parts[3].substr(0,3));
+                z     = parseFloat(parts[3].substr(3,2));
+
+                // if due to roundoff we got something like 99 for z, make it a perfect zero
+                if( z > 50) {
+                    y++;
+                    z=0;
+                }
+
+               
+                this.label_100m.push(this.makeLabel(
+                    this.parent,
+                    new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),
+                    MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
+                    this.parent.gridStyle.fineLabelClass));
+
+            }
+        }
+   }
+   catch(ex) {
+       console.log("Error placing 100-meter markers: " + ex);
+       throw("Error placing 100-meter markers: " + ex);
+   }
+}  // end place100mLabels()
+
+Gridcell.prototype.checkClip = function(cp, p) {
+    ///  implementation of Cohen-Sutherland clipping algorithm to clip grid lines at boundarie
+    //        of utm zones and the viewport edges
+
+    var that=this;  // so private funcs can see this via that
+
+    function outcode(lat,lng) {
+        var code = 0;
+        if (lat < that.slat) {
+            code |= 4;
+        }
+        if (lat > that.nlat) {
+            code |= 8;
+        }
+        if (lng < that.wlng) {
+            code |= 1;}
+        if (lng > that.elng) {
+            code |= 2;
+        }
+        return code;
+    }
+    function inside(lat,lng) {
+        if (lat < that.slat || lat > that.nlat) {
+            return 0;
+        }
+        if (lng < that.wlng || lng > that.elng) {
+            return 0;
+        }
+        return 1;
+    }
+
+    var temp;
+    var t;
+    var u1=cp[p].lng();
+    var v1=cp[p].lat();
+    var u2=cp[p+1].lng();
+    var v2=cp[p+1].lat();
+    var code1 = outcode(v1, u1);
+    var code2 = outcode(v2, u2);
+    if ((code1 & code2) != 0) {   // line segment outside window...don't draw it
+      return null;
+    }
+    if ((code1 | code2) == 0) {   // line segment completely inside window...draw it
+      return 1;
+    }
+    if (inside(v1,u1)) {  // coordinates must be altered
+      // swap coordinates
+      temp = u1;
+      u1 = u2;
+      u2 = temp;
+
+      temp = v1;
+      v1 = v2;
+      v2 = temp;
+
+      temp = code1;
+      code1 = code2;
+      code2 = temp;
+   }
+   if (code1 & 8) { // clip along northern edge of polygon
+      t = (this.nlat - v1)/(v2-v1)
+      u1 += t*(u2-u1)
+      v1 = this.nlat
+      cp[p] = new google.maps.LatLng(v1,u1)
+   }
+   else if (code1 & 4) { // clip along southern edge
+      t = (this.slat - v1)/(v2-v1);
+      u1 += t*(u2-u1);
+      v1 = this.slat;
+      cp[p] = new google.maps.LatLng(v1,u1);
+   }
+   else if (code1 & 1) { // clip along west edge
+      t = (this.wlng - u1)/(u2-u1);
+      v1 += t*(v2-v1);
+      u1 = this.wlng;
+      cp[p] = new google.maps.LatLng(v1,u1);
+   }
+   else if (code1 & 2) { // clip along east edge
+      t = (this.elng - u1)/(u2-u1);
+      v1 += t*(v2-v1);
+      u1 = this.elng;
+      cp[p] = new google.maps.LatLng(v1,u1);
+   }
+
+   return 1;
+}
+
+///////////////////// end classes for "Gridcell" grid lines ///////////////////////
+
 
 
 ///////////////////////// class usng_georectangle//////////////////////////
