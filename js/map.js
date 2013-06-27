@@ -62,7 +62,7 @@
  * */
 
 //Debug variable. Set to true while developing, false when testing
-var debug = true;
+var debug = false;
 
 //Global variables for map.js
 var map,geocoder,curr_usng_view;
@@ -174,9 +174,12 @@ function initialize() {
 		if (disableClickListener){
 			return;
 		} else {
-			//Run a reverse Geocode when clicking the map
-			console.log("Map was clicked.");
-		 	reverseGeoCode(event.latLng);
+			//place a marker at the point clicked
+			createMarker(event.latLng);
+			
+			//Run a reverse Geocode when clicking the map - only desirable if we want an address showingup
+			//console.log("Map was clicked.");
+		 	//reverseGeoCode(event.latLng);
 		}
 	});
 	
@@ -189,11 +192,11 @@ function initialize() {
 	  });
 
 	
-    if (debug) {
+    
        document.getElementById('gridcheckbox').style.display="inline-block";
-    } else {
-        document.getElementById('gridcheckbox').style.display="none";
-    } 
+       //Use this to hide the grid checkbox in case you don't want it:
+       //document.getElementById('gridcheckbox').style.display="none";
+    
 
   }
 
@@ -291,7 +294,8 @@ function convUSNG(txt) {
 	//reverseGeoCode(foundLatLng);
 }
 
-//do a reverse geocode on a clicked point (or dragged marker?)
+//do a reverse geocode on a clicked point or dragged marker
+//If we use this exact code even for clicks, the marker will "snap" to the nearest road. Not really desirable in large rural areas.
 function reverseGeoCode (pnt){
 	//map.setCenter(pnt);
 	geocoder.geocode({'latLng': pnt}, function(results, status) {

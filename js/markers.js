@@ -52,7 +52,7 @@ function createMarker(latlng,strAddress) {
 	//build the info window inside the marker listener so it can be updated with current zoom level
 	google.maps.event.addListener(marker, "click", function() {
 	  mapClickListenerToggle();
-      thismarker = marker; //set thismarker global equal to this one so it can be deleted
+      thismarker = marker; //set thismarker equal to this one so it can be deleted
       	var zLev = map.getZoom();
       	if (strAddress != null) {
       		var info_str = strAddress + '<br \/>' ;
@@ -68,7 +68,7 @@ function createMarker(latlng,strAddress) {
 	   		
    		
    		//include directions
-        info_str += '<br\/><a href=\"https:\/\/maps.google.com\/maps?daddr='+latlng.lat()+ ','+latlng.lng()+'\' target=\"_blank\">Directions<\/a>';
+   		info_str += "<br\/><a href=\"https:\/\/maps.google.com\/maps?daddr="+latlng.lat()+","+latlng.lng()+"\" target=\"_blank\">Directions<\/a> ";
    		//include a delete me button
    		info_str += '<br \/><input type=\"button\" value=\"Delete marker\" onclick=removeOneMarker()>';
 		
@@ -106,16 +106,42 @@ function buildCoordString1(point,zLev)  {
         console.log("The zoom level is: "+zLev + ". The precision is: "+precision);
 		var ngCoords = usngfunc.fromLonLat(lnglat, precision);
         coordStr = "<i>USNG:</i> <b>" + ngCoords + "</b>";
-        
-        // decimal degrees
-        var preclng = point.lng().toFixed(precision+2);
-        var precLat = point.lat().toFixed(precision+2);
-   		coordStr += "<br\/><i>D.d:</i> "+precLat+ ","+preclng;
+   		
+   		// degrees and decimal minutes
+   		var degDecMin = lltoDMin(lnglat);
+        coordStr += "<br \/><i>D-M.m:<\/i><b> " + degDecMin.lat+", " + degDecMin.lng + "<\/b>"
          
        return(coordStr)
 }
 
-
+//Convert a lat/long object to Decimal Minutes
+//Minor modification of JKlassen suggestion
+//Much as I love the '° ' for degrees, the NSARC specs use a '-'
+//Replaces Larry's multiple functions lon2dm, lat2dm, and deg2dm below
+function lltoDMin(llobj) {
+	var lat = llobj.lat;
+	var lng = llobj.lon;
+	var NS = 'N';
+	var EW = 'E';
+	
+	var lat_deg = Math.imul(lat, 1); //Why multiply by 1? Math.imul not supported in a lot of browsers
+	//var lat_deg = lat;
+	if(lat_deg < 0) {
+		NS = 'S';
+	}
+	var lat_min = Math.abs(lat - lat_deg) * 60.0;
+	var lat_str = lat_deg.toString() + '-' + lat_min.toFixed(2) + NS;
+	
+	var lng_deg = Math.imul(lng, 1);
+	//var lng_deg = lng;
+	if(lng_deg < 0) {
+		EW = 'W';
+	}
+	var lng_min = Math.abs(lng - lng_deg) * 60.0;	
+	var lng_str = lng_deg.toString() + '-' + lng_min.toFixed(2) + EW;
+	
+	return {lat:lat_str, lng:lng_str};
+}
 
 // html string that holds coordinates other than NSRC standards (decimal degrees, dms, etc)
 function buildCoordString2(point)  {
@@ -126,6 +152,11 @@ function buildCoordString2(point)  {
 	var zone
  	LLtoUTM(point.y,point.x,utmcoords,0)
 	zone = utmcoords[2]
+	
+	// decimal degrees. Originally in buildCoordString1, moved here because D-M.mm is NSARC standard
+        var preclng = point.lng().toFixed(precision+2);
+        var precLat = point.lat().toFixed(precision+2);
+   		coordStr += "<br\/><i>D.d:</i> "+precLat+ ","+preclng;
 	
 	//alert(LLtoGARS(point.y,point.x))
 
