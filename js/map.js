@@ -33,17 +33,17 @@
  * 
  * HAS: 
  * 1. Map
- * 2. Geocoder setup for address (needs USNG)
- * 3. AutoComplete bound to the input text
+ * 2. Geocoder setup for address
+ * 3. AutoComplete bound to the input text for address
  * 4. Search Type function for switching via the radio button
  * 5. Default search type is address.
  * 6. Radio buttons that behave and switch search types appropriately
  * 7. Form that kicks off the search depending on the type; need the radio buttons in p tags in order to work AND style properly
- * 8. Map click listener for a reverse geocode
+ * 8. Map click listener for a reverse geocode. Might need to remove based on UAT.
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 11. Functions to toggle zone and grid lines, which call functions in gridlines.js
- * 12. Replacement of gridlines with ArcGIS Server (ArcGIS Online) USNG service. This is likey an interim solution
+ * 12. 
  * 
  * NEEDS:
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
@@ -54,9 +54,13 @@
  *    coordinate code, and upgrade some other functions. Keep in mind this app includes the ability to drop multiple markers
  *    and to delete them from their infowindows. So creating a single marker is probably not the best approach.
  * 3. Autocomplete JSON for USNG values? Nahh...this would require jQuery or Dojo for the autocomplete.
- * 4. An examination into click listener for the reverse geocode, why is it fired when the Delete Marker button is clicked? 
+ * 4. TESTME An examination into click listener for the reverse geocode, why is it fired when the Delete Marker button is clicked? This should be resolved by now.
  * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
- * 6. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked. When disabled, you can't click in them, and it would be good to just click in the input box to activate it
+ * 6. TESTME A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked.
+ *    When disabled, you can't click in them, and it would be good to just click in the input box to activate it. Below is code for disabling that doesn't work:
+ *		console.log("Switching to the USNG Search Type.");
+		document.getElementById('inputAddrTxt').disabled=true;
+		document.getElementById('inputUSNGTxt').disabled=false; 
  * 7. A new marker when a USNG search is performed
  * 8. Cleanup of zone option, styles, etc, when implementing single graticule style
  * */
@@ -64,7 +68,15 @@
 //Debug variable. Set to true while developing, false when testing
 var debug = false;
 
-//Global variables for map.js
+/* ****************  Global variables for map.js********
+ * curr_usng_view: the current viewport of the map. Used to determine precision needed, required overlays, etc.
+ * usngfunc: function for passing UTMs or Lat/Longs and obtaining USNG coordinates, or vice versa
+ * searchType: persists what "mode" or "type" of search being conducted by the user: address or USNG
+ * defaultBounds: boundaries for autocomplete awareness. Default extent of the map is controled with mapOptions in the initialize functions.
+ * autocOptions: options for autocomplete
+ * disableClickListener: Boolean for tracking the status of the map click listener. Helps disable the listener in
+ *   the event we don't want an inadvertent click, such as deleting a marker, to recenter the map or place a marker.
+ */
 var map,geocoder,curr_usng_view;
 var usngfunc = new USNG2();
 var searchType = "address";
@@ -77,12 +89,7 @@ var autocOptions = {
 	};
 var disableClickListener = false;
 
-//Variables for ArcGIS Server USNG service endpoint, used with arcgislink code
-var agsurl = 'http://maps1.arcgisonline.com/ArcGIS/rest/services/NGA_US_National_Grid/MapServer';
-var dynamap = new gmaps.ags.MapOverlay(agsurl, { opacity: 0.7 });
-
-
-//******************Objects for storing USNG overlay lines
+//******Objects for storing USNG overlay lines**********
 //Probably won't need these if we implement the graticule style
 var zoneLines = null;
 var lines100k = null;
@@ -106,8 +113,10 @@ var m100_linecolor = "#ff6633";
 var m100_linewidth = 1;
 var m100_lineopacity = 1;
 
-//*********USNG Graticule Styles
-//Object for USNG Graticule
+/* *********USNG Graticule Styles**********
+ * Objects/Globals for USNG Graticules
+ * Graticules are another word for 'overlays', just implemented as a whole instead of individually
+ */
 var graticule = null;
 
 // grid style passed to USNGGraticule
@@ -135,35 +144,39 @@ var gridstyle = {
 /* ****************
  * Initial Functions for map setup
  * Initialize map and set up listeners
+ * mapOptions sets the initial center and zoom level; could be replaced by the users location
+ *  with a location-aware app. Still required for users that either can't or won't allow the browser to use their location
  * Launch searches, switch search types
+ * The initialize function is called by the onload event of the HTML body
  */
 
 function initialize() {
     geocoder = new google.maps.Geocoder();
     var mapOptions = {
-      //panControl:false,
       center: new google.maps.LatLng(40.0, -97.5),
       zoom:5,
       mapTypeId: google.maps.MapTypeId.ROADMAP
     };
     map = new google.maps.Map(document.getElementById("map_canvas"),
         mapOptions);
+        
+    //Input address text
     var inputAddrTxt = document.getElementById('inputAddrTxt');
     
-    //Set initial USNG overlays as off, define a usng viewport
+    //Set initial USNG overlays as off
     map.zoneon = false;    
 	map.grid100kon = false;
 	map.grid1kon=false;
 	map.grid100mon=false;
 	
-	//add a onetime listener for the map idle so we can instantiate a usng view
+	//add a onetime listener for the map idle so we can instantiate a usng viewport
 	google.maps.event.addListenerOnce(map, 'idle', function(){
         console.log("Bounds are: "+this.getBounds());
         curr_usng_view = new usngviewport(this);
     });
 	
+	//initialize the autocomplete function
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
-	//document.getElementById('inputUSNGTxt').disabled=true;
 	
 	//add a listener for the autocomplete choice made
 	google.maps.event.addListener(autocomplete, 'place_changed', function() {
@@ -183,22 +196,12 @@ function initialize() {
 		}
 	});
 	
-	//listeners for AGS dynamap
-	  google.maps.event.addListener(dynamap, 'drawstart', function(){
-	    document.getElementById('drawing').style.display="inline-block";
-	  });
-	  google.maps.event.addListener(dynamap, 'drawend', function(){
-	    document.getElementById('drawing').style.display="none";
-	  });
-
-	
+	//Grid check boxes styles. Can likely move to CSS once testing is settled	    
+   document.getElementById('gridcheckbox').style.display="inline-block";
+   //Use this to hide the grid checkbox in case you don't want it:
+   //document.getElementById('gridcheckbox').style.display="none";
     
-       document.getElementById('gridcheckbox').style.display="inline-block";
-       //Use this to hide the grid checkbox in case you don't want it:
-       //document.getElementById('gridcheckbox').style.display="none";
-    
-
-  }
+}
 
 
 //Start the search, route the search function depending on the search type
@@ -206,39 +209,24 @@ function startSearch(addrTxt,USNGTxt) {
 	console.log("Starting Text Search of type: "+searchType);
 	if (searchType === "address") {
 		codeAddress(addrTxt); 
-	} else {
+	} else { //with only two search types, assume USNG if not address
 		USNGTxt = USNGTxt.toLocaleUpperCase();
-		console.log("Searching on USNG: "+USNGTxt);
 		convUSNG(USNGTxt);
 	}
-	//switchUIMode(1);
 }
 
-//Set or switch the search Type
+//Set or switch the searchType variable so it can be used later if necessary
+//Make sure the radio button reflects the status
 function setSearchType(radiotype) {
-	//console.log("The type is set to: "+radiotype);
-	//set the global searchType variable so it can be used later if necessary
 	searchType = radiotype;
 	if (searchType === "usng"){
-		//console.log("Switching to the USNG Search Type.");
-		//Disable the address input - but then you can't click in it to activate it!
-		//document.getElementById('inputAddrTxt').disabled=true;
-		//document.getElementById('inputUSNGTxt').disabled=false;
-		//make sure the USNG radio button is selected
 		document.getElementById('radioUSNG').checked = true;
-		
 	} else {
-		//console.log("Switching to the Address Search Type.");
-		//disable the USNG input - but then you can't click in it to activate it!
-		//document.getElementById('inputUSNGTxt').disabled=true;
-		//document.getElementById('inputAddrTxt').disabled=false;
-		//make sure the Address radio button is selected
 		document.getElementById('radioAddress').checked = true;
 	}
 }
 
-/* *************
- * Utility Functions
+/* ************* UTILITY FUNCTIONS ************
  * Geocoding
  * USNG conversion
  * Reverse Geocoding Functions
@@ -248,8 +236,6 @@ function setSearchType(radiotype) {
 //geocode the address, pan/zoom the map, and create a marker via the markers.js script
 function codeAddress(addrTxt) {
     var address = addrTxt;
-    //var address = document.getElementById('inputTxt').value; //This was a traditional way to do it, not sure if this is best
-    //console.log("Geocoding address: "+address);
     geocoder.geocode({'address':address}, function(results,status) {
       if (status == google.maps.GeocoderStatus.OK) {
         map.setCenter(results[0].geometry.location);
@@ -264,7 +250,7 @@ function codeAddress(addrTxt) {
 //Convert a USNG string to a lat long for a marker and zooming
 function convUSNG(txt) {
 	//console.log("Let's try to convert USNG: "+txt);
-	var usngZlev = null;
+	var usngZlev = null; //set up a zoom level for use later
 	try {
 		var foundLLobj = usngfunc.toLonLat(txt,null);
 	}
@@ -291,11 +277,12 @@ function convUSNG(txt) {
 	var foundLatLng = new google.maps.LatLng(foundLLobj.lat,foundLLobj.lon);
 	map.setCenter(foundLatLng);
 	createMarker(foundLatLng,null);
-	//reverseGeoCode(foundLatLng);
 }
 
 //do a reverse geocode on a clicked point or dragged marker
-//If we use this exact code even for clicks, the marker will "snap" to the nearest road. Not really desirable in large rural areas.
+//If we use this exact code even for map clicks, 
+//the marker will "snap" to the nearest road. Not really desirable in large rural areas.
+//so we limit the use of this function
 function reverseGeoCode (pnt){
 	//map.setCenter(pnt);
 	geocoder.geocode({'latLng': pnt}, function(results, status) {
@@ -333,13 +320,14 @@ function toggleGridDisp() {
         map.zoneon=true; 
         //curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
         //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
-        //refreshZONES();
-        dynamap.setMap(map);
+        refreshZONES();
+     
    }
    else {   
        //zoneLines.setMap(null);
+       graticule.setMap(null);
        map.zoneon = false; 
-       dynamap.setMap(null);
+
    }
  //   alert("in toggleZoneDisp, property zoneon="+map.zoneon)
 }
@@ -422,17 +410,3 @@ function refresh100m() {
     lines100m.setMap(map);
 }
 
-//switch the mode of the UI to/from mini search launch button to full search dialog
-//Recently added a type variable passed from two different search launch buttons
-//NOT USING RIGHT NOW, choosing instead to always have search dialog open
-function switchUIMode(mode,type) {
-	if (mode === 0) {
-		console.log("Launching Search.");
-		document.getElementById('usng_search').style.display="block";
-		document.getElementById('searchAddLaunch').style.display="none";
-		document.forms[0][0].focus();
-	} else {
-		document.getElementById('searchAddLaunch').style.display="block";
-		document.getElementById('usng_search').style.display="none";
-	}
-}
