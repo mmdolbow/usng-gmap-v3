@@ -7,29 +7,24 @@
     <style type="text/css">
     	@import "css/main.css";
     	</style>
+    <!--Bootstrap to Google Maps API  -->
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyA2q8pD_YjS70CpCcejLUgnL8AdTd6qFtk&libraries=places&sensor=false"></script>
-    <script type="text/javascript" src="//gmaps-utility-gis.googlecode.com/svn/trunk/arcgislink/src/arcgislink_compiled.js"></script>
-    <script type="text/javascript" src="js/gridlines.js"></script>
-    <script type="text/javascript" src="js/usng2.js"></script>
-    <!-- Final document should bootstrap usng2.js from github if possible
+    <!--Gridlines.js, for USNG grid overlays -->
+    <script type="text/javascript" src="js/gridlines.js"></script>    
+    <!-- USNG2.js, for UTM and Lat/Long conversions. Final document should bootstrap usng2.js from github if possible
     	<script type="text/javascript" src="//raw.github.com/bitner/usng_tools/master/usng2.js"></script> -->
-    
+    <script type="text/javascript" src="js/usng2.js"></script>
+	<!--GMaps utility library for labeled markers -->   
     <script type="text/javascript" src="//google-maps-utility-library-v3.googlecode.com/svn/trunk/markerwithlabel/src/markerwithlabel.js"></script>
+    <!--markers.js, for custom labels and markers-->
     <script type="text/javascript" src="js/markers.js"></script>
+    <!--Final: basic map.js for the application-->
     <script type="text/javascript" src="js/map.js"></script>
   </head>
   <body onload="initialize()">
     <div id="map_canvas" style="width:100%; height:100%">
 		<noscript>This web page requires Javascript to function properly. Please enable Javascript in your browser to continue.</noscript>
 		</div>
-	<!--  "LAUNCH" BUTTONS - Uncomment if they are deemed worthy of real estate and code
-    <div id="searchAddLaunch" style="display:block">
-    	<button onclick="switchUIMode(0,"address");">Find Address</button> <br />
-    </div>
-    <div id="searchUSNGLaunch" style="display:block">
-    	<button onclick="switchUIMode(0,"usng");">Find USNG</button> <br />
-    </div>
-   -->
     <div id="usng_search" style="display:block">
     	<!-- painful to get the form to behave with no server side scripts 
     		method="post" works for Address, not USNG
@@ -46,13 +41,5 @@
 		  <div id="drawing"><img src="images/loading.gif" alt="loading"></div>
 		</form>
     </div>
-    <!-- LET'S TRY A SINGLE FORM/DIV 
-    <div id="address_search" style="display:none">
-    	<form name="frmSearch" method="post" onsubmit="startSearch(this.inputAddrTxt.value); return false;" action="">
-		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" />
-		  <input type="submit" value="Search"/> <br />
-		</form>
-    </div>
-    -->
   </body>
 </html>

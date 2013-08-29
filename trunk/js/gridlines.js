@@ -33,7 +33,7 @@
  *    Need to be able to only redraw if necessary.
  * 6. Need to replace USNG functions with usngfunc
  * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
- *    in particular of UTM zone labels.
+ *    in particular of UTM zone labels and how the "Gridcell" and "draw one cell" functions work. Left off at line 670.
  * 	
  * */
 
@@ -114,9 +114,12 @@ USNGGraticule.prototype.draw = function() {
 
         if( zoomLevel < 6 ) {   // zoomed way out
             this.zoneLines = new USNGZonelines(this._map, this.view, this,
-            this.gridStyle.majorLineColor, this.gridStyle.majorLineWeight, this.gridStyle.majorLineOpacity);
+            this.gridStyle.majorLineColor,
+            this.gridStyle.majorLineWeight,
+            this.gridStyle.majorLineOpacity);
         }
         else {  // close enough to draw the 100km lines
+            console.log("Zoom greater than 6, drawing 100km lines");
             this.grid100k = new Grid100klines(this._map, this.view, this,
                 this.gridStyle.semiMajorLineColor,
                 this.gridStyle.semiMajorLineWeight,
@@ -164,7 +167,7 @@ USNGGraticule.prototype.gridValueFromPt = function(latLongPt) {
 function usngviewport(mygmap) {   // mygmap is an instance of google.map, created by calling function
 
    // arrays that hold the key coordinates...corners of viewport and UTM zone boundary intersections
-   console.log("Inside the usngviewport function.");
+   //console.log("Inside the usngviewport function.");
    this.lat_coords = new Array();
    this.lng_coords = new Array();
 
@@ -523,6 +526,7 @@ USNGZonelines.prototype.zonemarkerdraw = function() {
 ///////////////////// class to draw 100,000-meter grid lines/////////////////////////
 	
 function Grid100klines(map, viewport, parent) {
+	console.log("Grid100klines func launched.")
     this._map = map;
     this.view = viewport;
     this.parent = parent;
@@ -626,6 +630,7 @@ Grid100mlines.prototype.remove = function() {
 
 // constructor
 function Gridcell(map, parent, zones,interval) {
+	console.log("Defining a GridCell at interval: "+interval);
     if(!map) {
         throw "map argument not supplied to Gridcell constructor";
     }
@@ -656,21 +661,25 @@ Gridcell.prototype.drawOneCell = function() {
         
         var i,j,k,m,n,p,q;
 
-        //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original
-        usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},1);
+        //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. What is this used for?
+        //He's trying to create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
 
+		//If instead we pass (lonlat, precision) to Jim's function, we'll get 
+		//an array back of (utm_zone, grid_zone, utm_pt.utm_easting, utm_pt.utm_northing, precision)
+		//what precision can we use? Should we use the interval as a way to get at precision?
+        var myUtmCoords = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},1); //my attempt where to go from here?
         
         var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
 
 
-       // USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
+        //USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
 		usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},1);
         
         var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval) + 10 * this.interval;
 
-        
+        //console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+neutm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
