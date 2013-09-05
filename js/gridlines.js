@@ -21,6 +21,7 @@
  * 		The usng_georectangle class is fine, the zone marker function just can't be called before the full zone class is instantiated and added
  * 9. Markers for zone labels are working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 10. New USNGGraticule method partially implemented
+ *     Successfully converted some variable definitions in Gridcell.prototype.drawOneCell function to using Jim's methods
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
@@ -33,7 +34,7 @@
  *    Need to be able to only redraw if necessary.
  * 6. Need to replace USNG functions with usngfunc
  * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
- *    in particular of UTM zone labels and how the "Gridcell" and "draw one cell" functions work. Left off at line 670.
+ *    in particular of how the "Gridcell" and "draw one cell" functions work. Left off at line 750, where we try to get lat/long and need a "zone" variable
  * 	
  * */
 
@@ -524,6 +525,7 @@ USNGZonelines.prototype.zonemarkerdraw = function() {
 /////////////////end of class that draws zone lines///////////////////////////////
 
 ///////////////////// class to draw 100,000-meter grid lines/////////////////////////
+//Works by passing an "interval of 100,000" to the Gridcell function
 	
 function Grid100klines(map, viewport, parent) {
 	console.log("Grid100klines func launched.")
@@ -540,7 +542,7 @@ function Grid100klines(map, viewport, parent) {
     this.zones = this.view.geoextents();
 
     for (var i=0; i < this.zones.length; i++) {
-        var newCell = new Gridcell(this._map, this.parent, this.zones[i],100000);
+        var newCell = new Gridcell(this._map, this.parent, this.zones[i],100000,0);
 
         this.Gridcell_100k.push(newCell);
 
@@ -570,6 +572,7 @@ Grid100klines.prototype.remove = function() {
 /////////////end class Grid100klines ////////////////////////////////////////
 
 ///////////////////// class to draw 1,000-meter grid lines/////////////////////////
+//Works by passing an "interval of 1000" to the Gridcell function
 
 function Grid1klines(map, viewport, parent) {
     this._map = map;
@@ -582,7 +585,7 @@ function Grid1klines(map, viewport, parent) {
     this.zones = this.view.geoextents();
 
     for (var i = 0 ; i < this.zones.length ; i++ ) {
-        this.Gridcell_1k[i] = new Gridcell(this._map, this.parent, this.zones[i], 1000);
+        this.Gridcell_1k[i] = new Gridcell(this._map, this.parent, this.zones[i], 1000,2);
         this.Gridcell_1k[i].drawOneCell();
     }
 }
@@ -600,7 +603,7 @@ Grid1klines.prototype.remove = function() {
 
 
 ///////////////////// class to draw 100-meter grid lines/////////////////////////
-
+//Works by passing an "interval of 100" to the Gridcell function
 function Grid100mlines(map, viewport, parent) {
     this._map = map;
     this.view = viewport;
@@ -611,7 +614,7 @@ function Grid100mlines(map, viewport, parent) {
     this.zones = this.view.geoextents();
 
     for (var i=0; i<this.zones.length; i++) {
-       this.Gridcell_100m[i] = new Gridcell(this._map, this.parent, this.zones[i], 100);
+       this.Gridcell_100m[i] = new Gridcell(this._map, this.parent, this.zones[i], 100,3);
        this.Gridcell_100m[i].drawOneCell();
     }
 }
@@ -629,7 +632,8 @@ Grid100mlines.prototype.remove = function() {
 ///////////////////// class to calculate and draw "Gridcell" grid lines ///////////////////////
 
 // constructor
-function Gridcell(map, parent, zones,interval) {
+//Adding precision variable in an attempt to convert to Klassen method of obtaining grid values --MMD 8.4.2013
+function Gridcell(map, parent, zones,interval,precision) {
 	console.log("Defining a GridCell at interval: "+interval);
     if(!map) {
         throw "map argument not supplied to Gridcell constructor";
@@ -651,35 +655,40 @@ function Gridcell(map, parent, zones,interval) {
     this.label_100k = [];
     this.label_1k   = [];
     this.label_100m = [];
+    this.precision = precision; //Added MMD 8.4.2013
 }
 
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
     try {
-
-        var utmcoords = [];
+		console.log("Drawing One Cell with the Gridcell prototype.")
+        //var utmcoords = [];
         
         var i,j,k,m,n,p,q;
 
         //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. What is this used for?
         //He's trying to create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
 
-		//If instead we pass (lonlat, precision) to Jim's function, we'll get 
+		//If instead we pass (lonlat, precision) through Jim's fromLonLat and then toUTM functions, we'll get 
 		//an array back of (utm_zone, grid_zone, utm_pt.utm_easting, utm_pt.utm_northing, precision)
-		//what precision can we use? Should we use the interval as a way to get at precision?
-        var myUtmCoords = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},1); //my attempt where to go from here?
+		//what precision can we use? Right now we're passing it as another variable depending on the calling function
+        var swUSNGparsed = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},precision); 
+        var swUtmCoords = usngfunc.toUTM(swUSNGparsed); //returns { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision, usng: usng_string };
+        console.log("SW UTM coordinates are: "+swUtmCoords.easting+", "+swUtmCoords.northing);
         
-        var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
-        var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
+        var sw_utm_e = (Math.floor(swUtmCoords.easting/this.interval)*this.interval)-this.interval;
+        var sw_utm_n = (Math.floor(swUtmCoords.northing/this.interval)*this.interval)-this.interval;
 
 
         //USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
-		usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},1);
+		var neUSNGparsed = usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},precision);
+		var neUtmCoords = usngfunc.toUTM(neUSNGparsed);
+		console.log("NE UTM coordinates are: "+neUtmCoords.easting+", "+neUtmCoords.northing);
         
-        var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval) + 10 * this.interval;
-        var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval) + 10 * this.interval;
+        var ne_utm_e = (Math.floor(neUtmCoords.easting/this.interval+1)*this.interval) + 10 * this.interval;
+        var ne_utm_n = (Math.floor(neUtmCoords.northing/this.interval+1)*this.interval) + 10 * this.interval;
 
-        //console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+neutm_e+","+ne_utm_n);
+        console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -736,7 +745,11 @@ Gridcell.prototype.drawOneCell = function() {
 
             // collect coords to be used to place markers
             // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-            geocoords = USNG.UTMtoLL_GeoPoint(sw_utm_e+(2*this.interval), i, zone);
+            //geocoords = USNG.UTMtoLL_GeoPoint(sw_utm_e+(2*this.interval), i, zone); //original
+            
+            //using Jim's
+            var myll = usngfunc.UTM.invProj(zone, sw_utm_e+(2*this.interval), i);
+            console.log("My LL is: "+myll);
 
             if ((geocoords.y > this.slat) && (geocoords.y < this.nlat)) {
                 northings[k++] = geocoords.y;
