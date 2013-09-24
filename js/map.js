@@ -79,6 +79,7 @@ var debug = false;
  */
 var map,geocoder,curr_usng_view;
 var usngfunc = new USNG2();
+var utm_proj = new usngfunc.UTM();
 var searchType = "address";
 var defaultBounds = new google.maps.LatLngBounds(
   new google.maps.LatLng(24.20689,-124.291994),
@@ -171,7 +172,7 @@ function initialize() {
 	
 	//add a onetime listener for the map idle so we can instantiate a usng viewport
 	google.maps.event.addListenerOnce(map, 'idle', function(){
-        console.log("Bounds are: "+this.getBounds());
+        //console.log("Bounds are: "+this.getBounds());
         curr_usng_view = new usngviewport(this);
     });
 	
@@ -206,7 +207,7 @@ function initialize() {
 
 //Start the search, route the search function depending on the search type
 function startSearch(addrTxt,USNGTxt) {
-	console.log("Starting Text Search of type: "+searchType);
+	//console.log("Starting Text Search of type: "+searchType);
 	if (searchType === "address") {
 		codeAddress(addrTxt); 
 	} else { //with only two search types, assume USNG if not address
@@ -259,7 +260,7 @@ function convUSNG(txt) {
 		alert(err);
 		return null;
 	}
-	console.log("Lat long components are: Precision - "+foundLLobj.precision+" Lat:"+foundLLobj.lat+" Long:"+foundLLobj.lon);
+	//console.log("Lat long components are: Precision - "+foundLLobj.precision+" Lat:"+foundLLobj.lat+" Long:"+foundLLobj.lon);
 	
 	//need best way to get a zoom level based on the returned precision
     //trying to get to 0 = 100km, 1 = 10km, 2 = 1km, 3 = 100m, 4 = 10m, 5 = 1m, ...
@@ -273,7 +274,7 @@ function convUSNG(txt) {
 			else {usngZlev=21;}
 	
 	map.setZoom(usngZlev);
-	console.log("New zoom level is: "+usngZlev);
+	//console.log("New zoom level is: "+usngZlev);
 	var foundLatLng = new google.maps.LatLng(foundLLobj.lat,foundLLobj.lon);
 	map.setCenter(foundLatLng);
 	createMarker(foundLatLng,null);
@@ -334,7 +335,7 @@ function toggleGridDisp() {
 
 // redraw UTM zone lines
 function refreshZONES() {
-   console.log("Zone lines being added via refreshZONES.");
+   //console.log("Zone lines being added via refreshZONES.");
    //zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
    graticule = new USNGGraticule(map,gridstyle);
    /*if (map.getZoom() < 10 || map.grid100kon==false) { 
