@@ -34,13 +34,14 @@
  *    Need to be able to only redraw if necessary.
  * 6. Need to replace USNG functions with usngfunc
  * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
- *    in particular of how the "Gridcell" and "draw one cell" functions work. Left off at line 750, where we try to get lat/long and need a "zone" variable
+ *    in particular of how the "Gridcell" and "draw one cell" functions work. Left off at line 756, where we are working with geocoords.lon and .lat from Jim's function
  * 	
  * */
 
 
 var x1;
 var y1;
+
 
 /////////////////////// begin class USNG Graticule //////////////////////////////////////////
 function USNGGraticule(map,gridStyle) {
@@ -107,7 +108,7 @@ USNGGraticule.prototype.draw = function() {
     try {
         this.onRemove(true);
 
-        console.log("drawing USNG grid, zoom is " + this._map.getZoom() );
+        //console.log("drawing USNG grid, zoom is " + this._map.getZoom() );
 
         this.view = new usngviewport(this._map);
 
@@ -120,7 +121,6 @@ USNGGraticule.prototype.draw = function() {
             this.gridStyle.majorLineOpacity);
         }
         else {  // close enough to draw the 100km lines
-            console.log("Zoom greater than 6, drawing 100km lines");
             this.grid100k = new Grid100klines(this._map, this.view, this,
                 this.gridStyle.semiMajorLineColor,
                 this.gridStyle.semiMajorLineWeight,
@@ -748,9 +748,12 @@ Gridcell.prototype.drawOneCell = function() {
             //geocoords = USNG.UTMtoLL_GeoPoint(sw_utm_e+(2*this.interval), i, zone); //original
             
             //using Jim's
-            var myll = usngfunc.UTM.invProj(zone, sw_utm_e+(2*this.interval), i);
-            console.log("My LL is: "+myll);
+            //We need a zone variable again: we could get it from the sw and ne coords, like swUtmCoords.zone
+            //Created by establishing the utm_proj var in map.js in order to access invProj
+            geocoords = utm_proj.invProj(swUtmCoords.zone, sw_utm_e+(2*this.interval), i);
+            console.log("My geocoords on line 75x of gridlines.js are: "+geocoords.lon + ", "+geocoords.lat );
 
+			//Will need to convert these to geocoords.lon and geocoords.lat
             if ((geocoords.y > this.slat) && (geocoords.y < this.nlat)) {
                 northings[k++] = geocoords.y;
             }
