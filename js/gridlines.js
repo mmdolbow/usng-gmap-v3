@@ -22,6 +22,7 @@
  * 9. Markers for zone labels are working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 10. New USNGGraticule method partially implemented
  *     Successfully converted some variable definitions in Gridcell.prototype.drawOneCell function to using Jim's methods
+ * 11. Commented out MARCONI.stdlib.fixedFormatNumber sections; without that code I don't know what that does. Merely used the x or the y available
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
@@ -34,8 +35,10 @@
  *    Need to be able to only redraw if necessary.
  * 6. Need to replace USNG functions with usngfunc
  * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
- *    in particular of how the "Gridcell" and "draw one cell" functions work. Left off at line 756, where we are working with geocoords.lon and .lat from Jim's function
- * 	
+ *    in particular of how the "Gridcell" and "draw one cell" functions work. 
+ * 8. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
+ * 9. Currently failing on 100m markers, suspect sections like line 1162 are failing
+ *     because Marconi LLtoUSNG returns different results than Klassen usngfunc.fromlonlat 
  * */
 
 
@@ -751,19 +754,23 @@ Gridcell.prototype.drawOneCell = function() {
             //We need a zone variable again: we could get it from the sw and ne coords, like swUtmCoords.zone
             //Created by establishing the utm_proj var in map.js in order to access invProj
             geocoords = utm_proj.invProj(swUtmCoords.zone, sw_utm_e+(2*this.interval), i);
-            console.log("My geocoords on line 75x of gridlines.js are: "+geocoords.lon + ", "+geocoords.lat );
+            //console.log("My geocoords on line 75x of gridlines.js are: "+geocoords.lat + ", "+geocoords.lon );
 
-			//Will need to convert these to geocoords.lon and geocoords.lat
-            if ((geocoords.y > this.slat) && (geocoords.y < this.nlat)) {
-                northings[k++] = geocoords.y;
+			if ((geocoords.lat > this.slat) && (geocoords.lat < this.nlat)) {
+                northings[k++] = geocoords.lat;
             }
 
             // calculate  line segments of one e-w line
             temp=[];
             for( m = sw_utm_e ; m <= ne_utm_e ; m += precision ) {
-                temp.push(USNG.UTMtoLL(m, i, zone));
+                //temp.push(USNG.UTMtoLL(m, i, zone));
+                //Marconi's USNG.UTMtoLL produces a google.maps.LatLng
+                var tmpCoords = utm_proj.invProj(swUtmCoords.zone, m, i);
+                var tmpPoint = new google.maps.LatLng(tmpCoords.lat,tmpCoords.lon);
+                temp.push(tmpPoint);
             }
-
+			//console.log("My last tmpCoords on line 76x of gridlines.js are: "+tmpCoords.lat + ", "+tmpCoords.lon );
+			
             gr100kCoord = [];
 
             // clipping routine...eliminate overedge lines
@@ -813,17 +820,20 @@ Gridcell.prototype.drawOneCell = function() {
           
           // collect coords to be used to place markers
           // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-          geocoords = USNG.UTMtoLL_GeoPoint(i, sw_utm_n+(2*this.interval), zone);
+          //geocoords = USNG.UTMtoLL_GeoPoint(i, sw_utm_n+(2*this.interval), zone);
+          geocoords = utm_proj.invProj(swUtmCoords.zone, sw_utm_n+(2*this.interval), i);
 
-          if (geocoords.x > this.wlng && geocoords.x < this.elng) {
-              eastings[k++] = geocoords.x;
+          if (geocoords.lon > this.wlng && geocoords.lon < this.elng) {
+              eastings[k++] = geocoords.lon;
           }
 
           temp=[];
 
           for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
-
-             temp.push(USNG.UTMtoLL(i, m, zone));
+             //temp.push(USNG.UTMtoLL(i, m, zone));
+             var tmpCoords = utm_proj.invProj(swUtmCoords.zone, m, i);
+             var tmpPoint = new google.maps.LatLng(tmpCoords.lat,tmpCoords.lon);
+             temp.push(tmpPoint);
           }
           
           // clipping routine...eliminate overedge lines
@@ -1046,7 +1056,8 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                     console.log("Warning: longitude is " + longitude);
                 }
                 
-               var gridRef = USNG.LLtoUSNG(latitude, longitude);
+               //var gridRef = USNG.LLtoUSNG(latitude, longitude);
+               var gridRef = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 2);
                var parts = gridRef.split(" ");
 
                var x = parseFloat(parts[2].substr(0,2));
@@ -1078,8 +1089,8 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                     console.log("Warning: y-axis longitude is " + longitude);
                 }
 
-               gridRef  = USNG.LLtoUSNG(latitude,longitude);
-
+               //gridRef  = USNG.LLtoUSNG(latitude,longitude);
+			   gridRef = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 2);
                parts = gridRef.split(" ");
 
                var y = parseFloat(parts[3].substr(0,2));
@@ -1119,7 +1130,9 @@ Gridcell.prototype.place100mLabels = function(east,north) {
         for (var i = 1; east[i+1] ; i+= 1) {
             for (var j=1; j< 2; j++) {
                 
-                var gridRef  = USNG.LLtoUSNG((north[j]+north[j+1])/2, east[i]);
+                //var gridRef  = USNG.LLtoUSNG((north[j]+north[j+1])/2, east[i]);
+                var gridRefNorth = (north[j]+north[j+1])/2;
+                var gridRef = usngfunc.fromLonLat({lon:east[i],lat:gridRefNorth}, 3);
                 var parts = gridRef.split(" ");
 
                 var x = parseFloat(parts[2].substr(0,3));
@@ -1132,9 +1145,10 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                 if( !(x % skipFactor) ) {
                     
                     var insigDigits = (skipFactor == 1 || !(x%10) ? "<sup>00</sup>" : "");
-
+					/*function makeLabel expects: (parent, latLong, labelText, className) { */
                     this.label_100m.push(this.makeLabel(this.parent, new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),
-                        MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
+                        //MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
+                        x + insigDigits, "left","top",
                         this.parent.gridStyle.fineLabelClass));
                 }
             }
@@ -1143,8 +1157,11 @@ Gridcell.prototype.place100mLabels = function(east,north) {
         // place "y-axis" labels, don't worry about skip factor since there's plenty of room comparatively
         for (i=1; i<2; i++) {
             for (j=1; north[j+1]; j++) {
-                gridRef  = USNG.LLtoUSNG(north[j],(east[i]+east[i+1])/2,4);
+                //gridRef  = USNG.LLtoUSNG(north[j],(east[i]+east[i+1])/2,4);
+                var gridRefEast = (east[i]+east[i+1])/2;
+                gridRef = usngfunc.fromLonLat({lon:gridRefEast,lat:north[j]}, 3);
                 parts = gridRef.split(" ");
+                console.log("Parts on line 116x of grdlines are: "+parts[0]+", "+parts[1]+", "+parts[2]+", "+parts[3]);
 
                 var y = parseFloat(parts[3].substr(0,3));
                 z     = parseFloat(parts[3].substr(3,2));
@@ -1159,7 +1176,8 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                 this.label_100m.push(this.makeLabel(
                     this.parent,
                     new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),
-                    MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
+                    //MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
+                    y + "<sup>00</sup>", "center", "top",
                     this.parent.gridStyle.fineLabelClass));
 
             }
