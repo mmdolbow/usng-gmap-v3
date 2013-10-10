@@ -39,6 +39,8 @@
  * 8. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
  * 9. Currently failing on 100m markers, suspect sections like line 1162 are failing
  *     because Marconi LLtoUSNG returns different results than Klassen usngfunc.fromlonlat 
+ * 10. Left off on 1k markers, prototype.place1kLabels. Got past errors but now only horizontal lines are drawing and getting labeled. C
+ *     Consistently testing at the middle of the scale range now to try to work on one set of markers/labels at a time.
  * */
 
 
@@ -531,7 +533,7 @@ USNGZonelines.prototype.zonemarkerdraw = function() {
 //Works by passing an "interval of 100,000" to the Gridcell function
 	
 function Grid100klines(map, viewport, parent) {
-	console.log("Grid100klines func launched.")
+	//console.log("Grid100klines func launched.")
     this._map = map;
     this.view = viewport;
     this.parent = parent;
@@ -664,7 +666,7 @@ function Gridcell(map, parent, zones,interval,precision) {
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
     try {
-		console.log("Drawing One Cell with the Gridcell prototype.")
+		//console.log("Drawing One Cell with the Gridcell prototype.")
         //var utmcoords = [];
         
         var i,j,k,m,n,p,q;
@@ -677,7 +679,7 @@ Gridcell.prototype.drawOneCell = function() {
 		//what precision can we use? Right now we're passing it as another variable depending on the calling function
         var swUSNGparsed = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},precision); 
         var swUtmCoords = usngfunc.toUTM(swUSNGparsed); //returns { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision, usng: usng_string };
-        console.log("SW UTM coordinates are: "+swUtmCoords.easting+", "+swUtmCoords.northing);
+        //console.log("SW UTM coordinates are: "+swUtmCoords.easting+", "+swUtmCoords.northing);
         
         var sw_utm_e = (Math.floor(swUtmCoords.easting/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(swUtmCoords.northing/this.interval)*this.interval)-this.interval;
@@ -686,12 +688,12 @@ Gridcell.prototype.drawOneCell = function() {
         //USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
 		var neUSNGparsed = usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},precision);
 		var neUtmCoords = usngfunc.toUTM(neUSNGparsed);
-		console.log("NE UTM coordinates are: "+neUtmCoords.easting+", "+neUtmCoords.northing);
+		//console.log("NE UTM coordinates are: "+neUtmCoords.easting+", "+neUtmCoords.northing);
         
         var ne_utm_e = (Math.floor(neUtmCoords.easting/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(neUtmCoords.northing/this.interval+1)*this.interval) + 10 * this.interval;
 
-        console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
+        //console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -987,6 +989,8 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 latitude = (north[j]+north[j+1])/2;
                 longitude = (east[i] + east[i+1])/2;
                 
+                console.log("Adding a 100k marker at: "+latitude+", "+longitude);
+                
                 labelText = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 0);
                 
                 // if zoomed way out use a different label
@@ -1023,7 +1027,8 @@ Gridcell.prototype.place100kLabels = function(east,north) {
 
 Gridcell.prototype.place1kLabels = function(east,north) {
    try {
-
+	   console.log("Inside Gridcell Prototype Place1kLabels, East is: "+east);
+	   console.log("And North is: "+north);
        var latitude;
        var longitude;
 
@@ -1034,21 +1039,23 @@ Gridcell.prototype.place1kLabels = function(east,north) {
 
        // place labels on N-S grid lines (that is, ladder labels lined up in an E-W row)
 
-       // label x-axis
-       for (var i=1; east[i+1] ; i++) {
-           if( !east[i] || !east[i+1]  ) {
-                //alert("at i=" + i + ", east is " + east[i] + " and " + east[i+1]);
-           }
+       // place labels x-axis
+       
+       for (var i=0; i<east.length; i++) { //originally had i=1 as the first, and east[i+1] as the middle statement. That will mean if there are only 2 east elements, this loop never starts
+       	console.log("Inside the for loop at position "+i+", east is"+east[i]);
+           /*if( !east[i] || !east[i+1]  ) {
+                console.log("at i=" + i + ", east is " + east[i] + " and " + east[i+1]);
+           }*/ //Xavier only had an alert here, nothing else, so didn't need this block
             
           for (var j=1; j<2 && j+1 < north.length ; j++) {
               if( !north[j] || !north[j+1]  ) {
-                    //alert("at j=" + j + ", northing is " + north[j] + " and " + north[j+1]);
+                    console.log("at j=" + j + ", northing is " + north[j] + " and " + north[j+1]);
                 }
                 
                // labeled marker
                latitude  = (north[j]+north[j+1])/2;
                longitude = east[i];
-               
+               //console.log("x-axis latitude is " + latitude + ",longitude is "+longitude+ " when j=" + j);
                if(!latitude) {
                     console.log("Warning: x-axis latitude is " + latitude + " when j=" + j);
                 }
@@ -1059,6 +1066,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                //var gridRef = USNG.LLtoUSNG(latitude, longitude);
                var gridRef = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 2);
                var parts = gridRef.split(" ");
+               //console.log("Parts are: "+parts);
 
                var x = parseFloat(parts[2].substr(0,2));
 
@@ -1069,6 +1077,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
 
                 var labelText = "" + x +"k";
+                //console.log("At 1078, we have marker label text of: "+labelText);
                 var marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "left", "top",
                     this.parent.gridStyle.minorLabelClass);
                 this.label_1k.push(marker);
@@ -1076,12 +1085,13 @@ Gridcell.prototype.place1kLabels = function(east,north) {
        }
 
        // place labels on y-axis
-       for (i=1; i<2; i++) {
-          for (j=1; north[j+1]; j++) {
+       //console.log("Before line 1087, east.0 is: "+east[0]);
+       for (i=0; i<(east.length-1); i++) { //why such narrow definitions of i? Then it doesn't have enough to get through two east coordinates. Originally i=1;i<2;i++
+          for (j=0; j<north.length; j++) { //originally for j=1; north[j+1]; j++
                // labeled marker
                latitude  = north[j];
-               longitude = (east[i]+east[i+1])/2;
-               
+               longitude = (east[i]+east[i+1])/2; //This is going to bomb when east[i+1] doesn't exist. Why do you have to split them?
+               //console.log("Placing y axis labels, lat long is: "+latitude+", "+longitude); //longitude can be NaN at this point
                if(!latitude) {
                     console.log("Warning: y-axis latitude is " + latitude);
                 }
@@ -1092,6 +1102,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                //gridRef  = USNG.LLtoUSNG(latitude,longitude);
 			   gridRef = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 2);
                parts = gridRef.split(" ");
+               //console.log("Parts are: "+parts);
 
                var y = parseFloat(parts[3].substr(0,2));
                z = parseFloat(parts[3].substr(2,3));
@@ -1101,6 +1112,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
               
                labelText = "" + y +"k";
+               //console.log("At 1114, we have marker label text of: "+labelText); //we are getting this far
                marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "top",
                     this.parent.gridStyle.minorLabelClass);
                this.label_1k.push(marker);
@@ -1108,7 +1120,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
        }
    }
    catch(ex) {
-       throw("Error placeing 1k markers: " + ex);
+       throw("Error placing 1k markers: " + ex);
    }
 }  // end place1kLabels()
 
