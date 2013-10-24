@@ -39,8 +39,12 @@
  * 8. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
  * 9. Currently failing on 100m markers, suspect sections like line 1162 are failing
  *     because Marconi LLtoUSNG returns different results than Klassen usngfunc.fromlonlat 
- * 10. Left off on 1k markers, prototype.place1kLabels. Got past errors but now only horizontal lines are drawing and getting labeled. C
- *     Consistently testing at the middle of the scale range now to try to work on one set of markers/labels at a time.
+ * 10. Left off on 1k markers, prototype.place1kLabels. Got past errors but now only horizontal lines are drawing 
+ *      and only 2 eastings getting labeled. This doesn't seem to change with the precision I'm passing in to the new Gridcell calls. 
+ * 		Doesn't seem like the technique to pass the precision works anyway, since precision is undefined at that point.
+ * 		I used Jim's script for guidance on precision, wehre precision indicates the number of digits used
+ *      per coordinate: 0 = 100km, 1 = 10km (not used), 2 = 1km, 3 = 100m, 4 = 10m (not used)
+ *      Consistently testing at the middle of the scale range now to try to work on one set of markers/labels at a time.
  * */
 
 
@@ -590,7 +594,7 @@ function Grid1klines(map, viewport, parent) {
     this.zones = this.view.geoextents();
 
     for (var i = 0 ; i < this.zones.length ; i++ ) {
-        this.Gridcell_1k[i] = new Gridcell(this._map, this.parent, this.zones[i], 1000,2);
+        this.Gridcell_1k[i] = new Gridcell(this._map, this.parent, this.zones[i], 1000,2); //MD 10.23.2013 Originally used a 2 precision, what if I change it?
         this.Gridcell_1k[i].drawOneCell();
     }
 }
@@ -637,7 +641,7 @@ Grid100mlines.prototype.remove = function() {
 ///////////////////// class to calculate and draw "Gridcell" grid lines ///////////////////////
 
 // constructor
-//Adding precision variable in an attempt to convert to Klassen method of obtaining grid values --MMD 8.4.2013
+//Adding grid precision variable in an attempt to convert to Klassen method of obtaining grid values --MMD 8.4.2013
 function Gridcell(map, parent, zones,interval,precision) {
 	console.log("Defining a GridCell at interval: "+interval);
     if(!map) {
@@ -666,12 +670,13 @@ function Gridcell(map, parent, zones,interval,precision) {
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
     try {
-		//console.log("Drawing One Cell with the Gridcell prototype.")
+		console.log("Drawing One Cell with the Gridcell prototype. Precision is: "+precision);
+		//Precision is undefined at this point?
         //var utmcoords = [];
         
         var i,j,k,m,n,p,q;
 
-        //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. What is this used for?
+        //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. Xavier did this to:
         //He's trying to create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
 
 		//If instead we pass (lonlat, precision) through Jim's fromLonLat and then toUTM functions, we'll get 
@@ -693,7 +698,7 @@ Gridcell.prototype.drawOneCell = function() {
         var ne_utm_e = (Math.floor(neUtmCoords.easting/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(neUtmCoords.northing/this.interval+1)*this.interval) + 10 * this.interval;
 
-        //console.log("Xavier bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
+        console.log("Map bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -783,6 +788,7 @@ Gridcell.prototype.drawOneCell = function() {
               }
             }
 
+			//set path and styles of grid lines depending on interval
             if (this.interval == 100000) {
                this.gridlines.push(new google.maps.Polyline( {
                    path: gr100kCoord,
@@ -989,7 +995,7 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 latitude = (north[j]+north[j+1])/2;
                 longitude = (east[i] + east[i+1])/2;
                 
-                console.log("Adding a 100k marker at: "+latitude+", "+longitude);
+                //console.log("Adding a 100k marker at: "+latitude+", "+longitude);
                 
                 labelText = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 0);
                 
@@ -1027,8 +1033,8 @@ Gridcell.prototype.place100kLabels = function(east,north) {
 
 Gridcell.prototype.place1kLabels = function(east,north) {
    try {
-	   console.log("Inside Gridcell Prototype Place1kLabels, East is: "+east);
-	   console.log("And North is: "+north);
+	   console.log("Inside Gridcell Prototype Place1kLabels, East.length is: "+east.length);
+	   console.log("And North.length is: "+north.length);
        var latitude;
        var longitude;
 
@@ -1041,13 +1047,15 @@ Gridcell.prototype.place1kLabels = function(east,north) {
 
        // place labels x-axis
        
-       for (var i=0; i<east.length; i++) { //originally had i=1 as the first, and east[i+1] as the middle statement. That will mean if there are only 2 east elements, this loop never starts
-       	console.log("Inside the for loop at position "+i+", east is"+east[i]);
-           /*if( !east[i] || !east[i+1]  ) {
-                console.log("at i=" + i + ", east is " + east[i] + " and " + east[i+1]);
-           }*/ //Xavier only had an alert here, nothing else, so didn't need this block
-            
-          for (var j=1; j<2 && j+1 < north.length ; j++) {
+       for (var i=0; i<east.length; i++) { 
+       	/*originally had i=1 as the first, and east[i+1] as the middle statement. 
+       	 * That will mean if there are only 2 east elements, this loop only goes once
+       	 * The real question might be: why are there only two eastings?
+       	 */
+       	           
+         for (var j=1; j<2 && j+1 < north.length ; j++) {
+         	console.log("Inside the for east.length loop at position "+i+", east is"+east[i]+", north is: "+north[j]); 
+          	//originally for (var j=1; j<2 && j+1 < north.length ; j++), which means will never start if north.length is 2 or less, and never get beyond 2
               if( !north[j] || !north[j+1]  ) {
                     console.log("at j=" + j + ", northing is " + north[j] + " and " + north[j+1]);
                 }
@@ -1055,7 +1063,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                // labeled marker
                latitude  = (north[j]+north[j+1])/2;
                longitude = east[i];
-               //console.log("x-axis latitude is " + latitude + ",longitude is "+longitude+ " when j=" + j);
+               //console.log("x-axis lat/long is " + latitude + ", "+longitude+ " when j=" + j);
                if(!latitude) {
                     console.log("Warning: x-axis latitude is " + latitude + " when j=" + j);
                 }
@@ -1077,10 +1085,17 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
 
                 var labelText = "" + x +"k";
-                //console.log("At 1078, we have marker label text of: "+labelText);
+                console.log("We have an x-axis? marker label text of: "+labelText);
                 var marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "left", "top",
                     this.parent.gridStyle.minorLabelClass);
                 this.label_1k.push(marker);
+                
+                //I can just add a marker in the x axis labels. But why only two added?
+                /*var marker = new google.maps.Marker({
+				    position: new google.maps.LatLng(latitude,longitude),
+				    map: map,
+				    title:labelText
+				});*/
           }
        }
 
