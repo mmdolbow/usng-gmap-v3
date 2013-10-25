@@ -45,6 +45,8 @@
  * 		I used Jim's script for guidance on precision, wehre precision indicates the number of digits used
  *      per coordinate: 0 = 100km, 1 = 10km (not used), 2 = 1km, 3 = 100m, 4 = 10m (not used)
  *      Consistently testing at the middle of the scale range now to try to work on one set of markers/labels at a time.
+ * 11. Left off tracking back to line 834: longitudes are not being added to the eastings array because they aren't
+ *     within an appropriate range. Likely because we're using the wrong zone.
  * */
 
 
@@ -642,8 +644,8 @@ Grid100mlines.prototype.remove = function() {
 
 // constructor
 //Adding grid precision variable in an attempt to convert to Klassen method of obtaining grid values --MMD 8.4.2013
-function Gridcell(map, parent, zones,interval,precision) {
-	console.log("Defining a GridCell at interval: "+interval);
+function Gridcell(map, parent, zones,interval,gridprecision) {
+	console.log("Defining a GridCell at interval: "+interval+", gridprecision: "+gridprecision);
     if(!map) {
         throw "map argument not supplied to Gridcell constructor";
     }
@@ -653,7 +655,7 @@ function Gridcell(map, parent, zones,interval,precision) {
     }
 
     this._map   = map;
-    this.parent = parent;   // provides access to gridStyle for example
+    this.parent = parent;   // provides access to gridStyle for example. Will likely need to replace with Larry's or other styles --MMD
     this.slat   = zones.slat;
     this.wlng   = zones.wlng;
     this.nlat   = zones.nlat;
@@ -664,14 +666,14 @@ function Gridcell(map, parent, zones,interval,precision) {
     this.label_100k = [];
     this.label_1k   = [];
     this.label_100m = [];
-    this.precision = precision; //Added MMD 8.4.2013
+    this.gridprecision = gridprecision; //Added MMD 8.4.2013. Gets passed to the prototypes as this.gridprecision
 }
 
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
+  //"use strict";
     try {
-		console.log("Drawing One Cell with the Gridcell prototype. Precision is: "+precision);
-		//Precision is undefined at this point?
+		console.log("Drawing One Cell with the Gridcell prototype. gridprecision is: "+this.gridprecision);
         //var utmcoords = [];
         
         var i,j,k,m,n,p,q;
@@ -679,26 +681,23 @@ Gridcell.prototype.drawOneCell = function() {
         //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. Xavier did this to:
         //He's trying to create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
 
-		//If instead we pass (lonlat, precision) through Jim's fromLonLat and then toUTM functions, we'll get 
+		//If instead we pass (lonlat, gridprecision) through Jim's fromLonLat and then toUTM functions, we'll get 
 		//an array back of (utm_zone, grid_zone, utm_pt.utm_easting, utm_pt.utm_northing, precision)
-		//what precision can we use? Right now we're passing it as another variable depending on the calling function
-        var swUSNGparsed = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},precision); 
+		//what precision can we use? Right now we're using gridprecision, but does it matter?
+        var swUSNGparsed = usngfunc.fromLonLat({lon:this.wlng,lat:this.slat},this.gridprecision); 
         var swUtmCoords = usngfunc.toUTM(swUSNGparsed); //returns { zone : utm_zone, easting : utm_easting, northing : utm_northing, precision : precision, usng: usng_string };
-        //console.log("SW UTM coordinates are: "+swUtmCoords.easting+", "+swUtmCoords.northing);
+        //USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
+		var neUSNGparsed = usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},this.gridprecision);
+		var neUtmCoords = usngfunc.toUTM(neUSNGparsed);
+		//console.log("SW UTM coordinates are: "+swUtmCoords.easting+", "+swUtmCoords.northing);
+		//console.log("NE UTM coordinates are: "+neUtmCoords.easting+", "+neUtmCoords.northing);
         
         var sw_utm_e = (Math.floor(swUtmCoords.easting/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(swUtmCoords.northing/this.interval)*this.interval)-this.interval;
-
-
-        //USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone); //original
-		var neUSNGparsed = usngfunc.fromLonLat({lon:this.elng,lat:this.nlat},precision);
-		var neUtmCoords = usngfunc.toUTM(neUSNGparsed);
-		//console.log("NE UTM coordinates are: "+neUtmCoords.easting+", "+neUtmCoords.northing);
-        
         var ne_utm_e = (Math.floor(neUtmCoords.easting/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(neUtmCoords.northing/this.interval+1)*this.interval) + 10 * this.interval;
 
-        console.log("Map bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
+        //console.log("Cell bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -710,9 +709,9 @@ Gridcell.prototype.drawOneCell = function() {
         var eastings     = [];
 
         // set density of points on grid lines as space in meters between points
-        // case 1: zoomed out a long way; not very dense
         var precision;
-
+        
+        // case 1: zoomed out a long way; not very dense
         if (this._map.getZoom() < 12 ) {
             precision = 10000;
         }
@@ -724,7 +723,9 @@ Gridcell.prototype.drawOneCell = function() {
         else {
            precision = 1000;
         }
-
+		//Right now precision is always coming out as 1000 because this._map.getZoom isn't returning an integer, but a function
+		//console.log("At map zoom: "+this._map.getZoom+", so we use a precision of: "+precision);
+		
         precision *= 10;  // experiment here with a speedup multiplier
         if( precision > this.interval * 5) {
             precision = this.interval * 5;
@@ -760,8 +761,9 @@ Gridcell.prototype.drawOneCell = function() {
             //using Jim's
             //We need a zone variable again: we could get it from the sw and ne coords, like swUtmCoords.zone
             //Created by establishing the utm_proj var in map.js in order to access invProj
+            //need to pass zone, easting, northing. Get back lat lon
             geocoords = utm_proj.invProj(swUtmCoords.zone, sw_utm_e+(2*this.interval), i);
-            //console.log("My geocoords on line 75x of gridlines.js are: "+geocoords.lat + ", "+geocoords.lon );
+            //console.log("My geocoords on line 76x of gridlines.js are: "+geocoords.lat + ", "+geocoords.lon );
 
 			if ((geocoords.lat > this.slat) && (geocoords.lat < this.nlat)) {
                 northings[k++] = geocoords.lat;
@@ -821,17 +823,20 @@ Gridcell.prototype.drawOneCell = function() {
         eastings[0]    = this.wlng;
         k=1;
 
-
-
         // for each n-s line that covers the cell, with overedge
         for (i=sw_utm_e; i<ne_utm_e; i+=this.interval * skipFactor,j++) {
-          
+        //console.log("creating n-s lines, i="+i); //There are dozens of iterations for 1k, but only two eastings!
           // collect coords to be used to place markers
           // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
           //geocoords = USNG.UTMtoLL_GeoPoint(i, sw_utm_n+(2*this.interval), zone);
           geocoords = utm_proj.invProj(swUtmCoords.zone, sw_utm_n+(2*this.interval), i);
-
+          //console.log("creating n-s lines, at j: "+j+"geocords long is: "+geocoords.lon+". Is that greater than wlng? "+this.wlng); //yes
+          //console.log("creating n-s lines, at j: "+j+"geocords long is: "+geocoords.lon+". Is that less than elng? "+this.elng); //no
+		
+		  //Longitudes are not getting added to eastings here because they are not less than the this.elng
+		  //in fact, they are way off. For example, in Detroit, between -83.22 and -82.97, they are all in the -45 range
           if (geocoords.lon > this.wlng && geocoords.lon < this.elng) {
+          	console.log("adding the geocoords long to eastings.");
               eastings[k++] = geocoords.lon;
           }
 
@@ -843,6 +848,8 @@ Gridcell.prototype.drawOneCell = function() {
              var tmpPoint = new google.maps.LatLng(tmpCoords.lat,tmpCoords.lon);
              temp.push(tmpPoint);
           }
+          //These coordinates seem way off:
+          //console.log("My last tmpCoords on line 84x of gridlines.js are: "+tmpCoords.lat + ", "+tmpCoords.lon );
           
           // clipping routine...eliminate overedge lines
           gr100kCoord  = [];
@@ -851,7 +858,7 @@ Gridcell.prototype.drawOneCell = function() {
                   gr100kCoord.push(temp[p]);
               }
           }
-
+		  //push gr100kCoord path with styles depending on interval
           if (this.interval == 100000) {
              this.gridlines.push(new google.maps.Polyline({
                  path: gr100kCoord,
@@ -878,9 +885,11 @@ Gridcell.prototype.drawOneCell = function() {
                  map: this._map}));
           }
         }
-
+		
         eastings[k] = this.elng;
-
+		//at this point, typically only two eastings. Why?
+		console.log("Eastings is: " + eastings.join());
+        
         if (this.interval == 100000) {
            this.place100kLabels(eastings,northings);
         }
@@ -1085,7 +1094,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
 
                 var labelText = "" + x +"k";
-                console.log("We have an x-axis? marker label text of: "+labelText);
+                console.log("X-axis marker label text is: "+labelText);
                 var marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "left", "top",
                     this.parent.gridStyle.minorLabelClass);
                 this.label_1k.push(marker);
