@@ -22,31 +22,26 @@
  * 9. Markers for zone labels are working via http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/
  * 10. New USNGGraticule method partially implemented
  *     Successfully converted some variable definitions in Gridcell.prototype.drawOneCell function to using Jim's methods
+ * 		N-S and E-W lines and labels now appear to be successfully drawn in most cases
  * 11. Commented out MARCONI.stdlib.fixedFormatNumber sections; without that code I don't know what that does. Merely used the x or the y available
+ * 12. Used Jim's script for guidance on precision, wehre precision indicates the number of digits used
+ *      per coordinate: 0 = 100km, 1 = 10km (not used), 2 = 1km, 3 = 100m, 4 = 10m (not used). This is passed to the GridCell functions now
+ * 13. Using the middle coordinate of the cell to determine the zone. Still need to resolve what happens when multiple zones are in play
+ * 14. Figured out why longitudes were not being added to the eastings array because they weren't
+ *     within an appropriate range. No wonder, since we had the easting and northing switched!
  * 
  * NEEDS:
  * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
  *    With zoom out or pan, we need to redraw. With zoom in, we need to NOT redraw.
  * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
  *    Probably need to evaluate everything in usngzonelines.prototype.onAdd and draw to make sure they line up
- * 3. A bunch of ending semicolons! ;-) Although I think I got them all
- * 4. New labeled markers - have to keep them from doubling up on redraws  
- * 5. Performance: with redraws (?) on all overlays, just zone markers makes the map chug on a zoom event.
- *    Need to be able to only redraw if necessary.
- * 6. Need to replace USNG functions with usngfunc
- * 7. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
+ * 3. Better performance on the zone lines and labels on zoom/pan events
+ * 4. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
  *    in particular of how the "Gridcell" and "draw one cell" functions work. 
- * 8. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
- * 9. Currently failing on 100m markers, suspect sections like line 1162 are failing
- *     because Marconi LLtoUSNG returns different results than Klassen usngfunc.fromlonlat 
- * 10. Left off on 1k markers, prototype.place1kLabels. Got past errors but now only horizontal lines are drawing 
- *      and only 2 eastings getting labeled. This doesn't seem to change with the precision I'm passing in to the new Gridcell calls. 
- * 		Doesn't seem like the technique to pass the precision works anyway, since precision is undefined at that point.
- * 		I used Jim's script for guidance on precision, wehre precision indicates the number of digits used
- *      per coordinate: 0 = 100km, 1 = 10km (not used), 2 = 1km, 3 = 100m, 4 = 10m (not used)
- *      Consistently testing at the middle of the scale range now to try to work on one set of markers/labels at a time.
- * 11. Left off tracking back to line 847: longitudes are not being added to the eastings array because they aren't
- *     within an appropriate range. Perhaps because the northing is getting too large because of the "fudge factor"
+ * 5. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
+ * 6. Need better stylings of lines and labels
+ * 7. Need to decide whether or not to move input box to the top or to move x-axis labels somewhere else, because input box is obscuring x-axis labels
+ * 8. Need to figure out why non-zone n-s and e-w lines and labels aren't drawing when a wide screen is used
  * */
 
 
@@ -76,12 +71,13 @@ function USNGGraticule(map,gridStyle) {
               
 }
 
-
+//USNG Graticule Prototype
 USNGGraticule.prototype = new google.maps.OverlayView();
 
 //dummy onAdd function. Like Larry, Xavier had this as an empty function, although Larry did this for each type
 USNGGraticule.prototype.onAdd= function() {};
 
+//USNG Graticule Remov
 USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
     try {
         if( this.zoneLines ) {
@@ -115,6 +111,7 @@ USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
     }
 }
 
+//USNG Graticule Draw. Defines styles based on the current map zoom level
 USNGGraticule.prototype.draw = function() {
     try {
         this.onRemove(true);
@@ -467,7 +464,6 @@ USNGZonelines.prototype.remove = function() {
     }
 } 
 
-
 // zone label markers
 USNGZonelines.prototype.zonemarkerdraw = function() {
     function makeLabel(parent, latLong, labelText, className) {
@@ -641,9 +637,9 @@ Grid100mlines.prototype.remove = function() {
 
 
 ///////////////////// class to calculate and draw "Gridcell" grid lines ///////////////////////
+//Handles 100,000m, 1,000m, and 100m grids, depending on the interval passed
 
 // constructor
-//Adding grid precision variable in an attempt to convert to Klassen method of obtaining grid values --MMD 8.4.2013
 function Gridcell(map, parent, zones,interval,gridprecision) {
 	console.log("Defining a GridCell at interval: "+interval+", gridprecision: "+gridprecision);
     if(!map) {
@@ -679,7 +675,7 @@ Gridcell.prototype.drawOneCell = function() {
         var ctrUSNGparsed = usngfunc.fromLonLat({lon:(this.wlng+this.elng)/2,lat:(this.slat+this.nlat)/2},this.gridprecision);
         var ctrUSNGCoords = usngfunc.toUTM(ctrUSNGparsed);
         var zone = ctrUSNGCoords.zone;
-        console.log("Drawing One Cell with the Gridcell prototype. gridprecision is: "+this.gridprecision+", zone is: "+zone);
+        //console.log("Drawing One Cell with the Gridcell prototype. gridprecision is: "+this.gridprecision+", zone is: "+zone);
         
         var i,j,k,m,n,p,q;
 
@@ -708,7 +704,7 @@ Gridcell.prototype.drawOneCell = function() {
         var ne_utm_e = (Math.floor(neUtmCoords.easting/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(neUtmCoords.northing/this.interval+1)*this.interval) + 10 * this.interval;
 
-        console.log("Cell bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
+        //console.log("Cell bounding coords: "+sw_utm_e+","+sw_utm_n+" - "+ne_utm_e+","+ne_utm_n);
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -837,23 +833,17 @@ Gridcell.prototype.drawOneCell = function() {
         eastings[0]    = this.wlng;
         k=1;
 
-        // for each n-s line that covers the cell, with overedge
+        // calculate n-s line that cover the cell, with overedge
         for (i=sw_utm_e; i<ne_utm_e; i+=this.interval * skipFactor,j++) {
-        //console.log("creating n-s lines, i="+i); //There are dozens of iterations for 1k, but only two eastings!
           // collect coords to be used to place markers
           // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
           //geocoords = USNG.UTMtoLL_GeoPoint(i, sw_utm_n+(2*this.interval), zone);
-          geocoords = utm_proj.invProj(zone, sw_utm_n+(2*this.interval), i);
-          console.log("From UTM Easting: "+i+" and Northing: "+sw_utm_n+(2*this.interval));
-          console.log("My geocoords for n-s lines are: "+geocoords.lat + ", "+geocoords.lon );
-          //console.log("creating n-s lines, at j: "+j+"geocords long is: "+geocoords.lon+". Is that greater than wlng? "+this.wlng); //yes
-          //console.log("creating n-s lines, at j: "+j+"geocords long is: "+geocoords.lon+". Is that less than elng? "+this.elng); //no
-		
-		  //Longitudes are not getting added to eastings here because they are not less than the this.elng
-		  //in fact, they are way off. For example, in Detroit, between -83.22 and -82.97, they are all in the -45 range
-		  //In Denver, it looks like both the lat (3.x) and long (-71.x) are off
+          geocoords = utm_proj.invProj(zone, i, sw_utm_n+(2*this.interval)); 
+          //console.log("From UTM Easting: "+i+" and Northing: "+sw_utm_n);
+          //console.log("My geocoords for n-s lines are: "+geocoords.lat + ", "+geocoords.lon );
+          
           if (geocoords.lon > this.wlng && geocoords.lon < this.elng) {
-          	console.log("adding the geocoords long to eastings.");
+          	//console.log("adding the geocoords long to eastings.");
               eastings[k++] = geocoords.lon;
           }
 
@@ -861,12 +851,10 @@ Gridcell.prototype.drawOneCell = function() {
 
           for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
              //temp.push(USNG.UTMtoLL(i, m, zone));
-             var tmpCoords = utm_proj.invProj(zone, m, i);
+             var tmpCoords = utm_proj.invProj(zone, i, m);
              var tmpPoint = new google.maps.LatLng(tmpCoords.lat,tmpCoords.lon);
              temp.push(tmpPoint);
           }
-          //These coordinates seem way off:
-          //console.log("My last tmpCoords on line 84x of gridlines.js are: "+tmpCoords.lat + ", "+tmpCoords.lon );
           
           // clipping routine...eliminate overedge lines
           gr100kCoord  = [];
@@ -904,8 +892,6 @@ Gridcell.prototype.drawOneCell = function() {
         }
 		
         eastings[k] = this.elng;
-		//at this point, typically only two eastings. Why?
-		console.log("Eastings is: " + eastings.join());
         
         if (this.interval == 100000) {
            this.place100kLabels(eastings,northings);
@@ -1059,8 +1045,8 @@ Gridcell.prototype.place100kLabels = function(east,north) {
 
 Gridcell.prototype.place1kLabels = function(east,north) {
    try {
-	   console.log("Inside Gridcell Prototype Place1kLabels, East.length is: "+east.length);
-	   console.log("And North.length is: "+north.length);
+	   //console.log("Inside Gridcell Prototype Place1kLabels, East.length is: "+east.length);
+	   //console.log("And North.length is: "+north.length);
        var latitude;
        var longitude;
 
@@ -1073,14 +1059,13 @@ Gridcell.prototype.place1kLabels = function(east,north) {
 
        // place labels x-axis
        
-       for (var i=0; i<east.length; i++) { 
-       	/*originally had i=1 as the first, and east[i+1] as the middle statement. 
-       	 * That will mean if there are only 2 east elements, this loop only goes once
-       	 * The real question might be: why are there only two eastings?
-       	 */
+       for (var i=1; east[i+1]; i++) { 
+       	//originally (var i=1; east[i+1]; i++) 
+       	//Then (var i=0; i<east.length; i++), which might be more than we need
+
        	           
          for (var j=1; j<2 && j+1 < north.length ; j++) {
-         	console.log("Inside the for east.length loop at position "+i+", east is"+east[i]+", north is: "+north[j]); 
+         	//console.log("Inside the for east.length loop at position "+i+", east is"+east[i]+", north is: "+north[j]); 
           	//originally for (var j=1; j<2 && j+1 < north.length ; j++), which means will never start if north.length is 2 or less, and never get beyond 2
               if( !north[j] || !north[j+1]  ) {
                     console.log("at j=" + j + ", northing is " + north[j] + " and " + north[j+1]);
@@ -1111,23 +1096,19 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
 
                 var labelText = "" + x +"k";
-                console.log("X-axis marker label text is: "+labelText);
+                //console.log("X-axis marker label text is: "+labelText);
                 var marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "left", "top",
                     this.parent.gridStyle.minorLabelClass);
                 this.label_1k.push(marker);
                 
-                //I can just add a marker in the x axis labels. But why only two added?
-                /*var marker = new google.maps.Marker({
-				    position: new google.maps.LatLng(latitude,longitude),
-				    map: map,
-				    title:labelText
-				});*/
           }
        }
 
        // place labels on y-axis
        //console.log("Before line 1087, east.0 is: "+east[0]);
-       for (i=0; i<(east.length-1); i++) { //why such narrow definitions of i? Then it doesn't have enough to get through two east coordinates. Originally i=1;i<2;i++
+       for (i=1;i<2;i++) { //why such narrow definitions of i? Then it doesn't have enough to get through two east coordinates. 
+       		//Originally i=1;i<2;i++
+       		//Is this what makes too many y-axis labels?  (i=0; i<(east.length-1); i++)
           for (j=0; j<north.length; j++) { //originally for j=1; north[j+1]; j++
                // labeled marker
                latitude  = north[j];
@@ -1153,7 +1134,6 @@ Gridcell.prototype.place1kLabels = function(east,north) {
                 }
               
                labelText = "" + y +"k";
-               //console.log("At 1114, we have marker label text of: "+labelText); //we are getting this far
                marker = this.makeLabel(this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "top",
                     this.parent.gridStyle.minorLabelClass);
                this.label_1k.push(marker);
@@ -1214,7 +1194,7 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                 var gridRefEast = (east[i]+east[i+1])/2;
                 gridRef = usngfunc.fromLonLat({lon:gridRefEast,lat:north[j]}, 3);
                 parts = gridRef.split(" ");
-                console.log("Parts on line 116x of grdlines are: "+parts[0]+", "+parts[1]+", "+parts[2]+", "+parts[3]);
+                //console.log("Parts are: "+parts[0]+", "+parts[1]+", "+parts[2]+", "+parts[3]);
 
                 var y = parseFloat(parts[3].substr(0,3));
                 z     = parseFloat(parts[3].substr(3,2));
