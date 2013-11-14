@@ -39,7 +39,7 @@
  * 4. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
  *    in particular of how the "Gridcell" and "draw one cell" functions work. 
  * 5. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
- * 6. Need better stylings of lines and labels
+ * 6. Need better stylings of lines and labels. Use zonemarkerdraw function and main.css to style them
  * 7. Need to decide whether or not to move input box to the top or to move x-axis labels somewhere else, because input box is obscuring x-axis labels
  * 8. Need to figure out why non-zone n-s and e-w lines and labels aren't drawing when a wide screen is used
  * */
@@ -474,8 +474,8 @@ USNGZonelines.prototype.zonemarkerdraw = function() {
             var d = document.createElement("div");
             var x = pixelPoint.x;
             var y = pixelPoint.y;
-            var height=20;
-            var width=50;
+            var height=15;
+            var width=30;
 
             d.style.position = "absolute";
             d.style.width  = "" + width + "px";
@@ -952,8 +952,8 @@ Gridcell.prototype.makeLabel = function (parentGrid, latLong, labelText, horizon
     var x = pixelPoint.x;
     var y = pixelPoint.y;
 
-    var height = 30;
-    var width  = 50;
+    var height = 15;
+    var width  = 30;
 
 
     d.style.position = "absolute";
