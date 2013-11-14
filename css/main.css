@@ -17,7 +17,8 @@ body {
     height: auto;
     position: absolute;
     left: 25%; /*these positions absolute? */
-    bottom: 5%;
+    /*Originally: bottom: 5%; */
+    top: 1%;
     min-width:50%; /*this makes the div size to the page */
     padding: 2%;
     font-size:100%;
@@ -67,18 +68,6 @@ input[type=submit]{
 	display:none;
 }
 
-.labels {
-  	color: black;
-    /*background-color: red;*/
-    font-family: "Lucida Grande", "Arial", sans-serif;
-    font-size: 12px;
-    font-weight:bold;
-    text-align: center;
-    width: 25px;     
-    white-space: nowrap;
-}
-
-
 /*MIGHT DECIDE AGAINST USING THESE */
 #searchAddLaunch,#searchUSNGLaunch {
     height: auto;
@@ -96,4 +85,37 @@ input[type=submit]{
 	-webkit-border-radius: 10px;
 	border-radius: 10px; /* future proofing - end rounded corners */
 
+}
+
+/*Classes for USNG labels
+ * The element.style height and width on these labels is much bigger than we define with the CSS class.
+ * How can we override that?
+ *  */
+.majorGridLabel {
+	color: black;
+    background-color:#9FAAB4; /*A nice pink would be #FFCCFF */
+    -moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+    white-space: nowrap;
+    /*All of the following are overridden */
+    font-family: "Lucida Grande", "Arial", sans-serif;
+    font-size: 12px;
+    font-weight:bold;
+    text-align: center;
+    width: 25px;     
+    
+}
+.semiMajorGridLabel{
+	background-color:#c7d4e1; /*Nice color, but needs smaller element to look good*/
+	-moz-border-radius: 50px;
+	-webkit-border-radius: 50px;
+	border-radius: 50px;
+	padding:-5px;
+}
+.minorGridLabel {
+	
+}
+.fineGridLabel{
+	
 }
