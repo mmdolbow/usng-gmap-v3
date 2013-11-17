@@ -29,19 +29,19 @@
  * 13. Using the middle coordinate of the cell to determine the zone. Still need to resolve what happens when multiple zones are in play
  * 14. Figured out why longitudes were not being added to the eastings array because they weren't
  *     within an appropriate range. No wonder, since we had the easting and northing switched!
+ * 15. Fixed the 100k labels, changed the scale dependency on the 100m labels so they don't draw at 14 or lower
  * 
  * NEEDS:
- * 1. More work with zone lines and zone markers, particularly after they are on and the map bounds change:
+ * 
+ * - Need to figure out why zone labels aren't added between ~10 and 15 zoom
+ * - More work with zone lines and zone markers, particularly after they are on and the map bounds change:
  *    With zoom out or pan, we need to redraw. With zoom in, we need to NOT redraw.
- * 2. Review of Custom Overlays via https://developers.google.com/maps/documentation/javascript/overlays#CustomOverlays
- *    Probably need to evaluate everything in usngzonelines.prototype.onAdd and draw to make sure they line up
- * 3. Better performance on the zone lines and labels on zoom/pan events
- * 4. Lots of cleanup to kill previous methods for grid overlays for single graticule version. Needs better understanding
- *    in particular of how the "Gridcell" and "draw one cell" functions work. 
- * 5. Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
- * 6. Need better stylings of lines and labels. Use zonemarkerdraw function and main.css to style them
- * 7. Need to decide whether or not to move input box to the top or to move x-axis labels somewhere else, because input box is obscuring x-axis labels
- * 8. Need to figure out why non-zone n-s and e-w lines and labels aren't drawing when a wide screen is used
+ * - Better performance on the zone lines and labels on zoom/pan events 
+ * - Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
+ * - Need better stylings of lines and labels. Use zonemarkerdraw function and main.css to style them
+ * - Need to figure out why non-zone n-s and e-w lines and labels aren't drawing when a wide screen is used
+ * - Better understanding of when to use or not use the superscript 00's on the 100m labels
+ * - Y-axis and/or X-axis 100m labels appear to be off by one when compared to markers, depending on where you are
  * */
 
 
@@ -115,9 +115,10 @@ USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
 USNGGraticule.prototype.draw = function() {
     try {
         this.onRemove(true);
-
-        //console.log("drawing USNG grid, zoom is " + this._map.getZoom() );
-
+		var ctrLL = this._map.getCenter();
+        var ctrUSNG = usngfunc.fromLonLat({lon:ctrLL.lng(),lat:ctrLL.lat()},4);
+        //console.log("drawing USNG grid, zoom is " + this._map.getZoom() +", USNG at center is: "+ctrUSNG);
+		document.getElementById("coordinateInfo").innerHTML= ctrUSNG+"<\/br>Zoom: "+this._map.getZoom();
         this.view = new usngviewport(this._map);
 
         var zoomLevel = this._map.getZoom();  // zero is whole world, higher numbers (to about 20 are move detailed)
@@ -306,6 +307,7 @@ function USNGZonelines(map, viewport, parent) {
        var latlines = this.view.lats();
        var lnglines = this.view.lngs();
        this.gzd_rectangles = this.view.geoextents();
+       //console.log("We have this many GZD rectangles: "+this.gzd_rectangles.length);
        this.marker = [];
        var temp = [];
        var i;
@@ -641,7 +643,7 @@ Grid100mlines.prototype.remove = function() {
 
 // constructor
 function Gridcell(map, parent, zones,interval,gridprecision) {
-	console.log("Defining a GridCell at interval: "+interval+", gridprecision: "+gridprecision);
+	//console.log("Defining a GridCell at interval: "+interval+", gridprecision: "+gridprecision);
     if(!map) {
         throw "map argument not supplied to Gridcell constructor";
     }
@@ -749,7 +751,7 @@ Gridcell.prototype.drawOneCell = function() {
 
         var skipFactor=1;
 
-        if( this.interval==1000 && this._map.getZoom() == 11) {
+        if( this.interval==1000 && map.getZoom() == 11) {
             skipFactor=2;
         }
 
@@ -982,6 +984,7 @@ Gridcell.prototype.makeLabel = function (parentGrid, latLong, labelText, horizon
     return d;
 }
 
+////////////////////////Draw 100K Labels, such as LQ or GH ///////////////////////////////
 Gridcell.prototype.place100kLabels = function(east,north) {
     try {
 
@@ -991,7 +994,7 @@ Gridcell.prototype.place100kLabels = function(east,north) {
         var longitude;
 
 
-        if (this._map.getZoom() > 15) {
+        if (map.getZoom() > 15) {
             return; // don't display label when zoomed way in
         }
 
@@ -1007,30 +1010,34 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 latitude = (north[j]+north[j+1])/2;
                 longitude = (east[i] + east[i+1])/2;
                 
-                //console.log("Adding a 100k marker at: "+latitude+", "+longitude);
-                
                 labelText = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 0);
+                //console.log("Initial Label text for 100k: "+labelText);
+                
                 
                 // if zoomed way out use a different label
-
-                if (this._map.getZoom() < 10) {
+				//Examples below, if zone>9, use 14T LQ
+				//If not zone>9, use 4Q GH
+                if (map.getZoom() < 11) {
                     if (zone > 9) {
-                        labelText = labelText.substring(4,6)
+                        labelText = labelText.substring(4,7)
                     }
                     else {
-                        labelText = labelText.substring(3,5)
+                        labelText = labelText.substring(3,6)
                     }
                 }
-                else {
+                else { //if zoom is greater than 11, less than 15
+                	// Don't know why Xavier broke it out this way, adding zone labels between z10 and z15
+                	// Since they don't show otherwise if there is only one 100k label in view
                     if (zone > 9) {
-                        labelText = labelText.substring(0,3) + labelText.substring(4,6)
+                        labelText = /*labelText.substring(0,4) + */labelText.substring(4,7)
                     }
                     else {
-                        labelText = labelText.substring(0,2) + labelText.substring(3,5)
+                        labelText = /*labelText.substring(0,3) + */labelText.substring(3,6)
                     }
                     
                 }
-
+				
+				//console.log("Manipulated Label text for 100k: "+labelText);
                 this.label_100k.push(this.makeLabel(
                     this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "middle",
                     this.parent.gridStyle.semiMajorLabelClass));
@@ -1051,7 +1058,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
        var longitude;
 
        // at high zooms, don't label the 1k line since it'll get a 100m label'
-       if (this._map.getZoom() > 15) {
+       if (map.getZoom() > 15) {
            return;
        }
 
@@ -1149,7 +1156,7 @@ Gridcell.prototype.place100mLabels = function(east,north) {
     try {
 
         // only label lines when zoomed way in
-        if( this._map.getZoom() < 14) {
+        if( map.getZoom() < 15) { //originally 14
             return;
         }
 
@@ -1157,7 +1164,7 @@ Gridcell.prototype.place100mLabels = function(east,north) {
             return;
         }
 
-        var skipFactor = (this._map.getZoom() > 15 ? 1 : 2);
+        var skipFactor = (map.getZoom() > 15 ? 1 : 2);
         
         // place "x-axis" labels
         for (var i = 1; east[i+1] ; i+= 1) {
@@ -1378,438 +1385,3 @@ usng_georectangle.prototype.getNE = function() {
       return(new google.maps.LatLng(this.nlat,this.elng));
 }
 //////////////////////////////////////////////////////////////////////////////
-
-
-
-///////////////////// class to calculate and draw grid lines ///////////////////////
-
-// constructor
-function gridcell(map,zones,interval) { 
-  this.map = map;
-  this.slat = zones.slat;
-  this.wlng = zones.wlng;
-  this.nlat = zones.nlat;
-  this.elng = zones.elng;
-  this.interval = interval;
-  this.gridlines = new Array();
-  this.marker100k = new Array();
-  this.marker1k = new Array();
-}
-
-// instance of one utm cell
-gridcell.prototype.drawOneCell = function() {
-   var utmcoords = new Array();
-   var zone = getZoneNumber((this.slat+this.nlat)/2,(this.wlng+this.elng)/2);
-   var i,j,k,m,n,p,q;
-
-   LLtoUTM(this.slat,this.wlng,utmcoords,zone);
-   var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
-   var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
-
-   LLtoUTM(this.nlat,this.elng,utmcoords,zone);
-   var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval)+this.interval;
-   var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval)+this.interval;
-
-   var geocoords = new Object();
-   var temp = new Array();
-   var temp1 = new Array();
-   var gr100kCoord = new Array();
-   var northings = new Array();
-   var eastings = new Array();
-
-   // set density of points on grid lines
-   // case 1: zoomed out a long way; not very dense
-   if (this.map.getZoom() < 12 ) {
-	precision = 10000;
-   }
-   // case 2: zoomed in a long way
-   else if (this.map.getZoom() > 15) {
-       precision = 100;
-   }
-   // case 3: in between, zoom levels 12-15
-   else {
-       precision = 1000;
-   }
-
-   // for each e-w line that covers the cell, with overedge
-   northings[0] = this.slat;
-   k=1;
-   for (i=sw_utm_n, j=0; i<ne_utm_n; i+=this.interval,j++) {
-
-      // collect coords to be used to place markers
-      // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-      UTMtoLL(i,sw_utm_e+(2*this.interval),zone,geocoords);
-      if ((geocoords.lat > this.slat) && (geocoords.lat < this.nlat)) {
-          northings[k++] = geocoords.lat;
-      }
-      // calculate  line segments of one e-w line
-      for (m=sw_utm_e,n=0; m<=ne_utm_e; m+=precision,n++) {
-         UTMtoLL(i,m,zone,geocoords);
-         temp[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon);
-         }
-      // clipping routine...eliminate overedge lines
-      //    case of final point in the array is not covered
-      for (p=0, q=0; p<temp.length-1; p++) {
-          if (this.checkClip(temp,p)) {
-              gr100kCoord[q++] = temp[p];
-          }
-      }
-      if (this.interval == 100000) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k100_linecolor, k100_linewidth, k100_lineopacity);
-      }
-      else if (this.interval == 1000) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,k1_linecolor, k1_linewidth, k1_lineopacity);
-      }
-      else if (this.interval == 100) {
-         this.gridlines[j] = new google.maps.Polyline(gr100kCoord,m100_linecolor, m100_linewidth, m100_lineopacity);
-      }
-      this.map.addOverlay(this.gridlines[0]);
-      this.map.addOverlay(this.gridlines[j]);
-
-      // clear array that holds coordinates
-      for (n=0; gr100kCoord[n]; n++) { gr100kCoord[n] = null; };
-    }
-    northings[k++] = this.nlat;
-    eastings[0] = this.wlng;
-    k=1;
-
-   // for each n-s line that covers the cell, with overedge
-   for (i=sw_utm_e; i<ne_utm_e; i+=this.interval,j++) {
-
-      // collect coords to be used to place markers
-      // '2*this.interval' is a fudge factor that approximately offsets grid line convergence
-      UTMtoLL(sw_utm_n+(2*this.interval),i,zone,geocoords);
-      if (geocoords.lon > this.wlng && geocoords.lon < this.elng) {
-          eastings[k++] = geocoords.lon;
-      }
-
-      for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
-         UTMtoLL(m,i,zone,geocoords);
-         temp1[n] = new google.maps.LatLng(geocoords.lat,geocoords.lon);
-      }
-      // clipping routine...eliminate overedge lines
-      for (p=0, q=0; p<temp1.length-1; p++) {
-          if (this.checkClip(temp1,p)) {
-              gr100kCoord[q++] = temp1[p];
-          }
-      }
-
-      if (this.interval == 100000) {
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k100_linecolor,strokeWeight:k100_linewidth,strokeOpacity:k100_lineopacity});
-      }
-      else if (this.interval == 1000) { 
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:k1_linecolor,strokeWeight:k1_linewidth,strokeOpacity:k1_lineopacity});
-      }
-      else if (this.interval == 100) { 
-         this.gridlines[j] = new google.maps.Polyline({path:gr100kCoord,strokeColor:m100_linecolor,strokeWeight:m100_linewidth,strokeOpacity:m100_lineopacity});
-      }
-      this.map.addOverlay(this.gridlines[0]);
-      this.map.addOverlay(this.gridlines[j]);
-
-      // clear array that holds coordinates
-      for (n=0; n<gr100kCoord.length; n++) { gr100kCoord[n] = null; };
-    }
-
-    eastings[k] = this.elng;
-
-    if (this.interval == 100000) {
-       this.place100kMarkers(eastings,northings);
-    }
-    else if (this.interval == 1000) {
-       this.place1kMarkers(eastings,northings);
-    }
-    else if (this.interval == 100) {
-       this.place100mMarkers(eastings,northings);
-    }
-
-}  // end drawOneCell
-
-
-gridcell.prototype.onRemove = function() {
-   for (var i=0; i<this.gridlines.length; i++) {
-      this.map.removeOverlay(this.gridlines[i]);
-   }
-   for (var i=0; this.marker100k[i]; i++) {
-      this.map.removeOverlay(this.marker100k[i]);
-   }
-   for (var i=0; this.marker1k[i]; i++) {
-      this.map.removeOverlay(this.marker1k[i]);
-   }
-}
-
-///  implementation of Cohen-Sutherland clipping algorithm to clip grid lines at boundarie
-//        of utm zones and the viewport edges
-
-gridcell.prototype.checkClip = function(cp, p) {
-   var temp;
-   var t;
-   var u1=cp[p].lng();
-   var v1=cp[p].lat();
-   var u2=cp[p+1].lng();
-   var v2=cp[p+1].lat();
-   var code1 = this.outcode(v1, u1);
-   var code2 = this.outcode(v2, u2);
-   if ((code1 & code2) != 0) {   // line segment outside window...don't draw it
-      return null;
-   }
-   if ((code1 | code2) == 0) {   // line segment completely inside window...draw it
-      return 1;
-   }
-   if (this.inside(v1,u1)) {  // coordinates must be altered
-      // swap coordinates
-      temp = u1;
-      u1 = u2;
-      u2 = temp;
-      temp = v1;
-      v1 = v2;
-      v2 = temp;
-      temp = code1;
-      code1 = code2;
-      code2 = temp;
-   }
-   if (code1 & 8) { // clip along northern edge of polygon
-      t = (this.nlat - v1)/(v2-v1);
-      u1 += t*(u2-u1);
-      v1 = this.nlat;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-   else if (code1 & 4) { // clip along southern edge
-      t = (this.slat - v1)/(v2-v1);
-      u1 += t*(u2-u1);
-      v1 = this.slat;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-   else if (code1 & 1) { // clip along west edge
-      t = (this.wlng - u1)/(u2-u1);
-      v1 += t*(v2-v1);
-      u1 = this.wlng;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-   else if (code1 & 2) { // clip along east edge
-      t = (this.elng - u1)/(u2-u1);
-      v1 += t*(v2-v1);
-      u1 = this.elng;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
- 
-   return 1;
-}
-
-gridcell.prototype.outcode = function(lat,lng) {
-   var code = 0;
-   if (lat < this.slat) { code |= 4 }
-   if (lat > this.nlat) { code |= 8 }
-   if (lng < this.wlng) { code |= 1 }
-   if (lng > this.elng) { code |= 2 }
-   return code;
-}
-
-gridcell.prototype.inside = function(lat,lng) {
-   if (lat < this.slat || lat > this.nlat) {
-      return 0;
-   }
-   if (lng < this.wlng || lng > this.elng) {
-      return 0;
-   }
-   return 1;
-}
-//////////////////////////////////////////////////////////////////////////////////////////
-
-gridcell.prototype.place100kMarkers = function(east,north) {
-   var k=0;
-   var zone;
-   var z;
-
-   for (var i=0; east[i+1]; i++) {
-      for (var j=0; north[j+1]; j++) {
-           // labeled marker
-          zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 );
-          var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,1);
-	  if (this.map.getZoom() > 15) {
-	      return; // don't display labeled marker
-	  }
-          else if (this.map.getZoom() < 10) {
-             if (zone > 9) {
-                 z = z.substring(4,6);
-             }
-             else {
-                 z = z.substring(3,5);
-             }
-             opts = { 
-                "icon": icon100k_1,
-                "clickable": false,
-                "labelText": z,
-                "labelOffset": new GSize(-15, -11)
-             };
-          }
-          else {
-             if (zone > 9) {
-                 z = z.substring(0,3) + z.substring(4,6);
-             }
-             else {
-                 z = z.substring(0,2) + z.substring(3,5);
-             }
-             opts = { 
-                "icon": icon100k_2,
-                "clickable": false,
-                "labelText": z,
-                "labelOffset": new GSize(-15, -11)
-             };
-          }
-          this.marker100k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i]+east[i+1])/2),opts);
-
-          this.map.addOverlay(this.marker100k[k]);
-          k++;
-     }
-   }
-}
-
-
-gridcell.prototype.place1kMarkers = function(east,north) {
-
-   var k=0;
-   var zone;
-   var z;
-
-   // at high zooms, don't label the 1k line
-   if (this.map.getZoom() > 15) {
-       return;
-   }
-
-   // place labels on N-S grid lines (that is, ladder labels lined up in an E-W row)
-
-   // normal case of labeling the lines with ladder digits
-   for (var i=1; east[i+1]; i++) {
-      for (var j=1; j<2; j++) {
-           // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
-           z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3);
-           if (zone > 9) {
-              z = z.substring(7,9);
-           }
-           else {
-              z = z.substring(6,8);
-           }
-             opts = { 
-                "icon": icon1k,
-                "clickable": false,
-                "labelText": z,
-                "labelOffset": new GSize(-8, -15)
-             };
-          this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),opts);
-
-          this.map.addOverlay(this.marker1k[k]);
-          k++;
-      }
-   }
-
-   // place labels on E-W grid lines (that is, ladder labels lined up in a N-S column)
-   for (var i=1; i<2; i++) {
-      for (var j=1; north[j+1]; j++) {
-           // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
-           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,3);
-           if (zone > 9) {   
-               z = z.substring(11,13);
-           }
-           else {
-               z = z.substring(10,12);
-           }
-             opts = { 
-                "icon": icon1k,
-                "clickable": false,
-                "labelText": z,
-                "labelOffset": new GSize(-8, -15)
-             };
-          this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),opts);
-
-          this.map.addOverlay(this.marker1k[k]);
-          k++;
-     }
-   }
-}  // end place1kMarkers()
-
-
-
-gridcell.prototype.place100mMarkers = function(east,north) {
-   var k=0;
-   var zone;
-   var z, y;
-
-   // place labels on N-S grid lines (that is, ladder labels lined up in an E-W row)
-   for (var i=1; east[i+1]; i++) {
-      for (var j=1; j<2; j++) {
-           // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
-           z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,4);
-           if (zone > 9) {
-           		y = z.substring(7,9);
-	       		z = z.substring(9,10);
-           }
-           else {
-                y = z.substring(6,8);
-	       		z = z.substring(8,9);
-           }
-             opts = { 
-                "icon": icon100m,
-                "clickable": false,
-                "labelText": y+"<sup>"+z+"</sup>",
-                "labelOffset": new GSize(-9, -8)
-             };
-          this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),opts);
-
-          this.map.addOverlay(this.marker1k[k]);
-          k++;
-      }
-   }
-
-   // place labels on E-W grid lines (that is, ladder labels lined up in a N-S column)
-   for (var i=1; i<2; i++) {
-      for (var j=1; north[j+1]; j++) {
-           // labeled marker
-           zone = getZoneNumber((north[j]+north[j+1])/2,(east[i]+east[i+1])/2);
-           var z = LLtoUSNG((north[j]+north[j+1])/2,(east[i]+east[i+1])/2,4);
-           if (zone > 9) {   
-               y = z.substring(12,14);
-               z = z.substring(14,15);
-           }
-           else {
-               y = z.substring(11,13);
-               z = z.substring(13,14);
-           }
-             opts = { 
-                "icon": icon100m,
-                "clickable": false,
-                "labelText": y+"<sup>"+z+"</sup>",
-                "labelOffset": new GSize(-10, -10)
-             };
-          this.marker1k[k] = new LabeledMarker(new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),opts);
-
-          this.map.addOverlay(this.marker1k[k]);
-          k++;
-     }
-   }
-}  // end place100mMarkers()
-
-
-//Debugging Functions - add markers at latlngs created inside functions. Can kill this when finished debugging.
-function addMarker(location) {
-  marker = new google.maps.Marker({
-    position: location,
-    map: map
-  });
-}
-
-//Add polylines using a path with this separate function
-function addPolyLine(inpath)  {
-  console.log("In the addPolyLine func. The path is: "+inpath.toString().slice(0,15)); //path is different each time
-  var thisLine = new google.maps.Polyline({
-    path: inpath,
-    strokeColor: '#0000FF',
-    strokeOpacity: 0.2,
-    strokeWeight: 3
-  });
-
-  thisLine.setMap(map); //this.map_ doesn't work here
-}
-

@@ -35,7 +35,7 @@ body {
 	min-width:40%;
 }
 
-#rdoUSNG,#inputUSNGTxt {
+#rdoUSNG,#inputUSNGTxt,#coordinateInfo {
 	float:right;
 	margin:-10px 0 0 0;
 }
