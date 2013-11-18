@@ -15,14 +15,23 @@
     <style type="text/css">
     	@import "css/main.css";
     	</style>
+    <script type="text/javascript">
+	    var dataFromParent;  
+	    function init(){
+	    	console.log("Inside init func: "+dataFromParent);  
+	        document.getElementById("dd").innerHTML=dataFromParent;
+	    }
+
+	</script>
 	</head>
 
-	<body>
+	<body onload="init()">
 		<div>
 			<header>
 				<h1>More Coordinates</h1>
 			</header>
 			<div id='morecoords'>
+				Dd:<strong id='dd'>&nbsp;</strong><br />
 				D-M-S:<strong id='dms'>&nbsp;</strong><br />
 				GARS:<strong id='gars'>&nbsp;</strong><br />
 				NAD27:<strong id='nad27'>&nbsp;</strong><br />
