@@ -35,10 +35,10 @@
 		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" value="" onclick="setSearchType('address');" placeholder="Enter an address"/>
 		  <input type="text" id="inputUSNGTxt" name="inputUSNGTxt" value="" onclick="setSearchType('usng');" placeholder="Enter a USNG value"/><br />
 		  <input type="submit" id="btnSearch" name="searchButton" value="Search"/>
-		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address</p>
+		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address<em id="debugZlev"></em></p>
 		  <p id="rdoUSNG"><input id="radioUSNG" type="radio" name="searchtype" onclick="setSearchType('usng');" value="USNG"/>USNG</p> <br />
 		  <div id="gridcheckbox"><input type="checkbox" name="gridlines" onclick="toggleGridDisp();" />Grid Lines</div>
-		  <div id="coordinateInfo"><em>Coordinates</em></div>
+		  <div id="coordinateInfo"></div>
 		  <div id="drawing"><img src="images/loading.gif" alt="loading"></div>
 		</form>
     </div>

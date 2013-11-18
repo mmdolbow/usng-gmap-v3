@@ -115,10 +115,6 @@ USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
 USNGGraticule.prototype.draw = function() {
     try {
         this.onRemove(true);
-		var ctrLL = this._map.getCenter();
-        var ctrUSNG = usngfunc.fromLonLat({lon:ctrLL.lng(),lat:ctrLL.lat()},4);
-        //console.log("drawing USNG grid, zoom is " + this._map.getZoom() +", USNG at center is: "+ctrUSNG);
-		document.getElementById("coordinateInfo").innerHTML= ctrUSNG+"<\/br>Zoom: "+this._map.getZoom();
         this.view = new usngviewport(this._map);
 
         var zoomLevel = this._map.getZoom();  // zero is whole world, higher numbers (to about 20 are move detailed)

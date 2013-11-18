@@ -20,10 +20,11 @@
  * 10. Updated info window coordinate precision based on the actual zoom level, not just the one derived from the initial address match
  * 11. A way to delete the marker from the info window, including a delayed toggle of the map click listener so a new marker
  *     isn't immediately created again.
+ * 12. Successful launch of one type of alternative coordinates in the more.html
  * 
  * Needs:
  * - Need better formula to set the precision for usngfunc.fromLonLat based on the zoom level. Right now it's pretty crude
- * - A way to fill in alternative coordinates in the more.html
+ * - More alternative coordinates in the more.html
  * - An examination of the alt coordinates to better understand how to implement
  * 
  *
@@ -63,7 +64,7 @@ function createMarker(latlng,strAddress) {
    		info_str += buildCoordString1(latlng,zLev);
 	   	if (debug) {
 	   		//launch more page
-	   		info_str += '&nbsp...<a href=\"more.html" target=\"_blank\">More<\/a>';
+	   		info_str += "<input type=\"button\" onclick=\"openMorePage("+latlng.lat()+","+latlng.lng()+");\" id=\"btnMore\" name=\"moreButton\" value=\"More\"\/>";
 	   	}
 	   		
    		
@@ -280,4 +281,10 @@ function deg2dms(input) {
    else {csec = ""+sec.toFixed(2) }
 
    return(cdeg+"-"+cmin+"-"+csec)
+}
+
+function openMorePage(morelat,morelng) {
+	var output=morelat.toFixed(5)+", "+morelng.toFixed(5);
+	var childWin = window.open("more.html", "mywin", '');
+	childWin.dataFromParent = output; // dataFromParent is a variable in child.html
 }
