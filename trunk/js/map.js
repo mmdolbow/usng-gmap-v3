@@ -43,7 +43,7 @@
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 11. Functions to toggle zone and grid lines, which call functions in gridlines.js
- * 12. 
+ * 12. Dynamic display of USNG coordinates
  * 
  * NEEDS:
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
@@ -197,6 +197,19 @@ function initialize() {
 		}
 	});
 	
+  	google.maps.event.addListener(map, 'mousemove', function(event) {
+		var mouseLL=event.latLng;
+        var mouseUSNG = usngfunc.fromLonLat({lon:mouseLL.lng(),lat:mouseLL.lat()},4);
+		document.getElementById("coordinateInfo").innerHTML= "<em>"+mouseUSNG+"<\/em>";
+	});
+	
+	if (debug) {
+		google.maps.event.addListener(map, 'zoom_changed', function(event){ 
+			document.getElementById("debugZlev").innerHTML="____Zlev: "+map.getZoom();
+		});
+	}
+	
+	
 	//Grid check boxes styles. Can likely move to CSS once testing is settled	    
    document.getElementById('gridcheckbox').style.display="inline-block";
    //Use this to hide the grid checkbox in case you don't want it:
@@ -341,73 +354,5 @@ function refreshZONES() {
    /*if (map.getZoom() < 10 || map.grid100kon==false) { 
       zoneLines.zonemarkerdraw();
    }*/
-}
-
-// 100,000-meter grid squares
-function toggle100kDisp() {
-   if (map.grid100kon == false) {
-       map.grid100kon = true;
-       refresh100K();
-       if (map.getZoom()>=10 && map.zoneon==true) { 
-           zoneLines.zonemarkerremove();
-        }
-   }
-   else {
-       //map.removeOverlay(lines100k)
-       lines100k.setMap(null);
-       map.grid100kon = false;
-       if (map.getZoom()>=10 && map.zoneon==true) { 
-           zoneLines.zonemarkerdraw();
-        }
-   }
-}
-
-// 1,000-meter grid
-function toggle1kDisp() {
-   if (map.grid1kon == false) {
-       map.grid1kon = true;
-       refresh1K();
-    }
-   else {
-       //map.removeOverlay(lines1k)
-       lines1k.setMap(null);
-       map.grid1kon = false;
-    }
-}
-
-// 100-meter grid
-function toggle100mDisp() {
-   if (map.grid100mon == false) {
-       map.grid100mon = true;
-       refresh100m();
-    }
-   else {
-       //map.removeOverlay(lines100m)
-       lines100m.setMap(null);
-       map.grid100mon = false;
-    }
-}
-
-
-// redraw 100,000-meter grid USNG lines
-function refresh100K() {
-    lines100k = new grid100klines(curr_usng_view,k100_linecolor,k100_linewidth,k100_lineopacity);
-    //map.addOverlay(lines100k);
-    lines100k.setMap(map);
-}
-
-// redraw 1000-meter grid USNG lines
-function refresh1K() {
-    lines1k = new grid1klines(curr_usng_view,k1_linecolor,k1_linewidth,k1_lineopacity);
-    //map.addOverlay(lines1k);
-    lines1k.setMap(map);
-}
-
-// redraw 100 meter grid USNG lines
-function refresh100m() {
-    //************** change line color, etc *************
-    lines100m = new grid100mlines(curr_usng_view,m100_linecolor,m100_linewidth,m100_lineopacity);
-    //map.addOverlay(lines100m);
-    lines100m.setMap(map);
 }
 
