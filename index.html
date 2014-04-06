@@ -9,6 +9,9 @@
     	</style>
     <!--Bootstrap to Google Maps API  -->
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyA2q8pD_YjS70CpCcejLUgnL8AdTd6qFtk&libraries=places&sensor=false"></script>
+    <!--Marconi Stlib.js, for standard js functions used in gridlines.js. Not sure if needed, still testing -->
+    <script type="text/javascript" src="js/marconi_stdlib.js"></script>
+    
     <!--Gridlines.js, for USNG grid overlays -->
     <script type="text/javascript" src="js/gridlines.js"></script>    
     <!-- USNG2.js, for UTM and Lat/Long conversions. Final document should bootstrap usng2.js from github if possible
@@ -35,10 +38,10 @@
 		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" value="" onclick="setSearchType('address');" placeholder="Enter an address"/>
 		  <input type="text" id="inputUSNGTxt" name="inputUSNGTxt" value="" onclick="setSearchType('usng');" placeholder="Enter a USNG value"/><br />
 		  <input type="submit" id="btnSearch" name="searchButton" value="Search"/>
-		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address<em id="debugZlev"></em></p>
+		  <p id="rdoAdd"><input id="radioAddress" type="radio" name="searchtype" value="Address" checked="checked" onclick="setSearchType('address');"/>Address</p>
 		  <p id="rdoUSNG"><input id="radioUSNG" type="radio" name="searchtype" onclick="setSearchType('usng');" value="USNG"/>USNG</p> <br />
 		  <div id="gridcheckbox"><input type="checkbox" name="gridlines" onclick="toggleGridDisp();" />Grid Lines</div>
-		  <div id="coordinateInfo"></div>
+		  <div id="coordinateInfo"></div></br><em id="debugZlev"></em>
 		  <div id="drawing"><img src="images/loading.gif" alt="loading"></div>
 		</form>
     </div>

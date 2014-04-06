@@ -37,7 +37,8 @@
  * - More work with zone lines and zone markers, particularly after they are on and the map bounds change:
  *    With zoom out or pan, we need to redraw. With zoom in, we need to NOT redraw.
  * - Better performance on the zone lines and labels on zoom/pan events 
- * - Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber
+ * - Need to investigate impacts of killing MARCONI.stdlib.fixedFormatNumber. Testing to see if it fixes the "off by one" issue.
+ *   It doesn't seem to be the problem, but can look deeper into the script to make sure it's not needed.
  * - Need better stylings of lines and labels. Use zonemarkerdraw function and main.css to style them
  * - Need to figure out why non-zone n-s and e-w lines and labels aren't drawing when a wide screen is used
  * - Better understanding of when to use or not use the superscript 00's on the 100m labels
@@ -77,7 +78,7 @@ USNGGraticule.prototype = new google.maps.OverlayView();
 //dummy onAdd function. Like Larry, Xavier had this as an empty function, although Larry did this for each type
 USNGGraticule.prototype.onAdd= function() {};
 
-//USNG Graticule Remov
+//USNG Graticule Remove
 USNGGraticule.prototype.onRemove = function(leaveHandlersAlone) {
     try {
         if( this.zoneLines ) {
@@ -638,7 +639,7 @@ Grid100mlines.prototype.remove = function() {
 //Handles 100,000m, 1,000m, and 100m grids, depending on the interval passed
 
 // constructor
-function Gridcell(map, parent, zones,interval,gridprecision) {
+function Gridcell(map,parent,zones,interval,gridprecision) {
 	//console.log("Defining a GridCell at interval: "+interval+", gridprecision: "+gridprecision);
     if(!map) {
         throw "map argument not supplied to Gridcell constructor";
@@ -678,7 +679,7 @@ Gridcell.prototype.drawOneCell = function() {
         var i,j,k,m,n,p,q;
 
         //USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone); //original. Xavier did this to:
-        //He's trying to create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
+        //create a "utmcoords" array with 0:utm pt x, 1:utm pt y, and 2:zoneNumber
 
 		//If instead we pass (lonlat, gridprecision) through Jim's fromLonLat and then toUTM functions, we'll get 
 		//an array back of (utm_zone, grid_zone, utm_pt.utm_easting, utm_pt.utm_northing, precision)
@@ -745,7 +746,7 @@ Gridcell.prototype.drawOneCell = function() {
             precision = ne_utm_e - sw_utm_e;
         }
 
-        var skipFactor=1;
+        var skipFactor=1; //MMD what does this accomplish?
 
         if( this.interval==1000 && map.getZoom() == 11) {
             skipFactor=2;
@@ -786,7 +787,7 @@ Gridcell.prototype.drawOneCell = function() {
                 var tmpPoint = new google.maps.LatLng(tmpCoords.lat,tmpCoords.lon);
                 temp.push(tmpPoint);
             }
-			//console.log("My last tmpCoords on line 76x of gridlines.js are: "+tmpCoords.lat + ", "+tmpCoords.lon );
+			//console.log("My last tmpCoords on line 78x of gridlines.js are: "+tmpCoords.lat + ", "+tmpCoords.lon );
 			
             gr100kCoord = [];
 
@@ -999,14 +1000,15 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 
             for (var j=0; north[j+1]; j++) {
                 // labeled marker
-                //zone = MARCONI.map.getUTMZoneFromLatLong((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 );
-			    zone = usngfunc.fromLonLat({lon:(east[i]+east[i+1])/2,lat:(north[j]+north[j+1])/2},0);
-
                 // lat and long of center of area
                 latitude = (north[j]+north[j+1])/2;
                 longitude = (east[i] + east[i+1])/2;
                 
+                //zone = MARCONI.map.getUTMZoneFromLatLong((north[j]+north[j+1])/2,(east[i]+east[i+1])/2 );  
+
                 labelText = usngfunc.fromLonLat({lon:longitude,lat:latitude}, 0);
+                labelTextCoords = usngfunc.toUTM(labelText);
+                zone = labelTextCoords.zone;
                 //console.log("Initial Label text for 100k: "+labelText);
                 
                 
@@ -1108,7 +1110,7 @@ Gridcell.prototype.place1kLabels = function(east,north) {
        }
 
        // place labels on y-axis
-       //console.log("Before line 1087, east.0 is: "+east[0]);
+       //console.log("Before line 1112, east.0 is: "+east[0]);
        for (i=1;i<2;i++) { //why such narrow definitions of i? Then it doesn't have enough to get through two east coordinates. 
        		//Originally i=1;i<2;i++
        		//Is this what makes too many y-axis labels?  (i=0; i<(east.length-1); i++)
@@ -1160,7 +1162,7 @@ Gridcell.prototype.place100mLabels = function(east,north) {
             return;
         }
 
-        var skipFactor = (map.getZoom() > 15 ? 1 : 2);
+        var skipFactor = (map.getZoom() > 15 ? 1 : 2); //set the skipFactor depending on scale
         
         // place "x-axis" labels
         for (var i = 1; east[i+1] ; i+= 1) {
@@ -1183,8 +1185,8 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                     var insigDigits = (skipFactor == 1 || !(x%10) ? "<sup>00</sup>" : "");
 					/*function makeLabel expects: (parent, latLong, labelText, className) { */
                     this.label_100m.push(this.makeLabel(this.parent, new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),
-                        //MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
-                        x + insigDigits, "left","top",
+                        MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
+                        //x + insigDigits, "left","top",
                         this.parent.gridStyle.fineLabelClass));
                 }
             }
@@ -1212,8 +1214,8 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                 this.label_100m.push(this.makeLabel(
                     this.parent,
                     new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),
-                    //MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
-                    y + "<sup>00</sup>", "center", "top",
+                    MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
+                    //y + "<sup>00</sup>", "center", "top",
                     this.parent.gridStyle.fineLabelClass));
 
             }

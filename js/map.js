@@ -49,6 +49,7 @@
  * 1. No way to bind/unbind the autocomplete depending if address or usng search is chosen
  *    Attempt to bind to a hidden textbox instead doesn't work
  *    Instead, have two search inputs, activated depending on the choice
+ * 	  If returning to a single input, check out developer solution to unbind here: http://code.google.com/p/gmaps-api-issues/issues/detail?id=3429
  * 2. A separate function for marker creation and infowindow? Consider studying and implementing markers.js from Moore's code,
  *    which facilitates multiple marker generation. It looks like you can copy a good chunk of it, dump some of the alternate
  *    coordinate code, and upgrade some other functions. Keep in mind this app includes the ability to drop multiple markers
@@ -205,7 +206,7 @@ function initialize() {
 	
 	if (debug) {
 		google.maps.event.addListener(map, 'zoom_changed', function(event){ 
-			document.getElementById("debugZlev").innerHTML="____Zlev: "+map.getZoom();
+			document.getElementById("debugZlev").innerHTML="Zlev: "+map.getZoom();
 		});
 	}
 	
