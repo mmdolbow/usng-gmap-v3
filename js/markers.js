@@ -81,7 +81,7 @@ function createMarker(latlng,strAddress) {
 
 function removeOneMarker() {
   // global variable 'this marker' is a workaround to delete a marker from within its own info window
-  console.log("Removing the marker.");
+  //console.log("Removing the marker.");
   infowindow.close();
   thismarker.setMap(null);
   setTimeout(function(){mapClickListenerToggle();}, 5);
@@ -91,7 +91,7 @@ function removeOneMarker() {
 // html string that holds the content of the "standard" tab of an info window
 // usng, D.d, directions, and set/delete marker button
 function buildCoordString1(point,zLev)  {
-        console.log("The lat,lng is: "+point.lat()+ ","+point.lng());
+        //console.log("The lat,lng is: "+point.lat()+ ","+point.lng());
         var lnglat = {lon:point.lng(),lat:point.lat()}; //convert the gmaps latlng object to the format the USNG2 function expects
         //need best way to define precision dynamically based on zoom level
         //trying to get to 0 = 100km, 1 = 10km, 2 = 1km, 3 = 100m, 4 = 10m, 5 = 1m, ...
@@ -104,7 +104,7 @@ function buildCoordString1(point,zLev)  {
 			else if (zLev<21) {precision=4;}
 			else {precision=5;}
         
-        console.log("The zoom level is: "+zLev + ". The precision is: "+precision);
+        //console.log("The zoom level is: "+zLev + ". The precision is: "+precision);
 		var ngCoords = usngfunc.fromLonLat(lnglat, precision);
         coordStr = "<i>USNG:</i> <b>" + ngCoords + "</b>";
    		
