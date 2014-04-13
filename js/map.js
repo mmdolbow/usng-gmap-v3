@@ -55,15 +55,11 @@
  *    coordinate code, and upgrade some other functions. Keep in mind this app includes the ability to drop multiple markers
  *    and to delete them from their infowindows. So creating a single marker is probably not the best approach.
  * 3. Autocomplete JSON for USNG values? Nahh...this would require jQuery or Dojo for the autocomplete.
- * 4. TESTME An examination into click listener for the reverse geocode, why is it fired when the Delete Marker button is clicked? This should be resolved by now.
- * 5. A way to turn off the checkboxes on the gridline inputs when they disappear...but may not be necessary
- * 6. TESTME A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked.
+ * 4. A way to gray out (instead of disable) the USNG or Address inputs when the other one is clicked.
  *    When disabled, you can't click in them, and it would be good to just click in the input box to activate it. Below is code for disabling that doesn't work:
  *		console.log("Switching to the USNG Search Type.");
 		document.getElementById('inputAddrTxt').disabled=true;
 		document.getElementById('inputUSNGTxt').disabled=false; 
- * 7. A new marker when a USNG search is performed
- * 8. Cleanup of zone option, styles, etc, when implementing single graticule style
  * */
 
 //Debug variable. Set to true while developing, false when testing
@@ -90,30 +86,6 @@ var autocOptions = {
 	  types: ['geocode']
 	};
 var disableClickListener = false;
-
-//******Objects for storing USNG overlay lines**********
-//Probably won't need these if we implement the graticule style
-var zoneLines = null;
-var lines100k = null;
-var lines1k = null;
-var lines100m = null;
-
-//variables for USNG overlay colors etc
-var zonelinecolor = "#FF0000";
-var zonelinewidth = 5;
-var zonelineopacity = .20;
-
-var k100_linecolor = "#0000ff";
-var k100_linewidth = 3;
-var k100_lineopacity = .40;
-
-var k1_linecolor = "#000000";
-var k1_linewidth = 1;
-var k1_lineopacity = 1;
-
-var m100_linecolor = "#ff6633";
-var m100_linewidth = 1;
-var m100_lineopacity = 1;
 
 /* *********USNG Graticule Styles**********
  * Objects/Globals for USNG Graticules
@@ -172,10 +144,12 @@ function initialize() {
 	map.grid100mon=false;
 	
 	//add a onetime listener for the map idle so we can instantiate a usng viewport
+	/* Only needed when using gridlines.js. Marconi code doesn't require
 	google.maps.event.addListenerOnce(map, 'idle', function(){
         //console.log("Bounds are: "+this.getBounds());
         curr_usng_view = new usngviewport(this);
     });
+    */
 	
 	//initialize the autocomplete function
 	autocomplete = new google.maps.places.Autocomplete(inputAddrTxt, autocOptions);
@@ -210,12 +184,6 @@ function initialize() {
 		});
 	}
 	
-	
-	//Grid check boxes styles. Can likely move to CSS once testing is settled	    
-   document.getElementById('gridcheckbox').style.display="inline-block";
-   //Use this to hide the grid checkbox in case you don't want it:
-   //document.getElementById('gridcheckbox').style.display="none";
-    
 }
 
 
@@ -329,31 +297,17 @@ function mapClickListenerToggle() {
 
 
 // response to check box that allows user to turn grid lines on and off
-// Can probably consolidate this function and the next
 function toggleGridDisp() {
    if (map.zoneon == false) { 
         map.zoneon=true; 
-        //curr_usng_view = new usngviewport(map);  // resets the usngviewport - required since the map might have changed
-        //console.log("After hitting toggle, Viewport longs are now: "+curr_usng_view.lngs());
-        refreshZONES();
-     
+        graticule = new USNGGraticule(map,gridstyle);
    }
    else {   
        //zoneLines.setMap(null);
        graticule.setMap(null);
        map.zoneon = false; 
-
    }
  //   alert("in toggleZoneDisp, property zoneon="+map.zoneon)
 }
 
-// redraw UTM zone lines
-function refreshZONES() {
-   //console.log("Zone lines being added via refreshZONES.");
-   //zoneLines = new usngzonelines(curr_usng_view,zonelinecolor,zonelineopacity,zonelinewidth,map);
-   graticule = new USNGGraticule(map,gridstyle);
-   /*if (map.getZoom() < 10 || map.grid100kon==false) { 
-      zoneLines.zonemarkerdraw();
-   }*/
-}
 

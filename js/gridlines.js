@@ -5,7 +5,7 @@
  *
  * Originally by Larry Moore
  * Updated for version 3 of the Google Maps API by Mike Dolbow
- * Assisted by code developed by Xavier Irias for Marconi Mapper
+ * Tried to incorporate, eventually replaced by code developed by Xavier Irias for Marconi Mapper
  * 
  * HAS:
  * 1. All GLatLng replaced with google.maps.LatLng
