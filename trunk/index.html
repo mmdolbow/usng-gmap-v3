@@ -9,16 +9,15 @@
     	</style>
     <!--Bootstrap to Google Maps API  -->
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyA2q8pD_YjS70CpCcejLUgnL8AdTd6qFtk&libraries=places&sensor=false"></script>
-    <!--Marconi Stlib.js, for standard js functions used in gridlines.js. Not sure if needed, still testing -->
-    <script type="text/javascript" src="js/marconi_stdlib.js"></script>
     
-    <!--Gridlines.js, for USNG grid overlays -->
-    <script type="text/javascript" src="js/gridlines.js"></script>    
+    <!--Attempt to deep bootstrap Xavier's scripts-->
+    <!--Marconi scripts, for overlays. Pretty sure these are the only ones needed. Google.js and genericmap.js seem unnecessary -->
+    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/stdlib.js"></script>
+    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/map.js"></script>
+    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/google/usnggraticule.js"></script>  
     <!-- USNG2.js, for UTM and Lat/Long conversions. Final document should bootstrap usng2.js from github if possible
     	<script type="text/javascript" src="//raw.github.com/bitner/usng_tools/master/usng2.js"></script> -->
     <script type="text/javascript" src="js/usng2.js"></script>
-	<!--GMaps utility library for labeled markers -->   
-    <script type="text/javascript" src="//google-maps-utility-library-v3.googlecode.com/svn/trunk/markerwithlabel/src/markerwithlabel.js"></script>
     <!--markers.js, for custom labels and markers-->
     <script type="text/javascript" src="js/markers.js"></script>
     <!--Final: basic map.js for the application-->
@@ -29,11 +28,6 @@
 		<noscript>This web page requires Javascript to function properly. Please enable Javascript in your browser to continue.</noscript>
 		</div>
     <div id="usng_search" style="display:block">
-    	<!-- painful to get the form to behave with no server side scripts 
-    		method="post" works for Address, not USNG
-    		method = get is assumed, just changes the URL and kills for USNG
-    		onsubmit="startSearch(this.inputAddrTxt.value,this.inputUSNGTxt.value); return false;"  results in a server error with a POST method
-    		-->
     	<form id="srchFrm" method="post" name="frmSearch" action="javascript:startSearch(document.getElementById('srchFrm').inputAddrTxt.value,document.getElementById('srchFrm').inputUSNGTxt.value);">
 		  <input type="text" id="inputAddrTxt" name="inputAddrTxt" value="" onclick="setSearchType('address');" placeholder="Enter an address"/>
 		  <input type="text" id="inputUSNGTxt" name="inputUSNGTxt" value="" onclick="setSearchType('usng');" placeholder="Enter a USNG value"/><br />
