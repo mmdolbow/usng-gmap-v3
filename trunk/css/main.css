@@ -56,12 +56,8 @@ input[type=submit]{
 	margin-right:40%;
 }
 
-#zonecheckbox,#grid100kcheckbox,#grid1kcheckbox,#grid100mcheckbox {
-	width: 20%;
-	height:10px;
-	font-size:.9em;
-	padding:10px 0 0 0;
-	vertical-align: middle;
+#gridcheckbox {
+	display:inline-block;
 }
 
 #drawing {
@@ -107,11 +103,7 @@ input[type=submit]{
     
 }
 .semiMajorGridLabel{
-	background-color:#c7d4e1; /*Nice color, but needs smaller element to look good*/
-	-moz-border-radius: 50px;
-	-webkit-border-radius: 50px;
-	border-radius: 50px;
-	padding:-5px;
+	color: blue;
 }
 .minorGridLabel {
 	
