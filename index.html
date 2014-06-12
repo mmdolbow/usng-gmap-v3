@@ -7,17 +7,14 @@
     <style type="text/css">
     	@import "css/main.css";
     	</style>
-    <!--Bootstrap to Google Maps API  -->
+    <!--Bootstrap to Google Maps API. Replace the key with your Google Maps key when deploying  -->
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyA2q8pD_YjS70CpCcejLUgnL8AdTd6qFtk&libraries=places&sensor=false"></script>
-    
-    <!--Attempt to deep bootstrap Xavier's scripts-->
-    <!--Marconi scripts, for overlays. Pretty sure these are the only ones needed. Google.js and genericmap.js seem unnecessary -->
-    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/stdlib.js"></script>
-    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/map.js"></script>
-    <script type="text/javascript" src="//ersquared.org/mapsample/scripts/google/usnggraticule.js"></script>  
-    <!-- USNG2.js, for UTM and Lat/Long conversions. Final document should bootstrap usng2.js from github if possible
-    	<script type="text/javascript" src="js/usng2.js"></script> -->
-    <script type="text/javascript" src="//raw.githubusercontent.com/klassenjs/usng_tools/master/usng2.js"></script>
+	<!--Local versions of Xavier Irias scripts-->
+	<script type="text/javascript" src="js/marconistdlib.js"></script>
+	<script type="text/javascript" src="js/marconimap.js"></script>
+	<script type="text/javascript" src="js/marconiusnggraticule.js"></script>
+    <!-- Klassen USNG2.js, for UTM and Lat/Long conversions. Final document should bootstrap usng2.js from github if possible -->
+    <script type="text/javascript" src="js/usng2.js"></script> 
     <!--markers.js, for custom labels and markers-->
     <script type="text/javascript" src="js/markers.js"></script>
     <!--Final: basic map.js for the application-->
