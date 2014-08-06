@@ -16,7 +16,7 @@ body {
 #usng_search {
     height: auto;
     position: absolute;
-    left: 25%; /*these positions absolute? */
+    left: 10%; /*these positions absolute? */
     /*Originally: bottom: 5%; */
     top: 1%;
     min-width:50%; /*this makes the div size to the page */
@@ -33,6 +33,7 @@ body {
 
 #inputUSNGTxt,#inputAddrTxt {
 	min-width:40%;
+	visibility:visible;
 }
 
 #rdoUSNG,#inputUSNGTxt,#coordinateInfo,#debugZlev {
@@ -49,11 +50,20 @@ body {
 	padding:5px 0 0 0;
 }
 	
-input[type=submit]{
+input[type=submit] {
 	display:block;
 	position:absolute;
 	margin-left:40%;
 	margin-right:40%;
+}
+
+.about {
+	display:block;
+	margin-left:40%;
+	position:absolute;
+	margin-top:25px;
+	font-size: small;
+	text-align: center;
 }
 
 #gridcheckbox {
