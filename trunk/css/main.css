@@ -32,11 +32,13 @@ body {
 }
 
 #inputUSNGTxt,#inputAddrTxt {
+	top:5px;
+	position:relative;
 	min-width:40%;
 	visibility:visible;
 }
 
-#rdoUSNG,#inputUSNGTxt,#coordinateInfo,#debugZlev {
+#rdoUSNG,#inputUSNGTxt {
 	float:right;
 	margin:-10px 0 0 0;
 }
@@ -48,8 +50,15 @@ body {
 
 #rdoAdd,#rdoUSNG {
 	padding:5px 0 0 0;
+	top:5px;
+	position:relative;
 }
-	
+
+#coordinateInfo,#debugZlev {
+	float:right;
+	margin:-5px 0 0 0;
+}	
+
 input[type=submit] {
 	display:block;
 	position:absolute;
@@ -68,6 +77,8 @@ input[type=submit] {
 
 #gridcheckbox {
 	display:inline-block;
+	top:3px;
+	position:relative;
 }
 
 #drawing {
