@@ -495,8 +495,10 @@ function USNGZonelines(map, viewport, parent) {
           
         }  // for each latitude line
 
-
-        this.zonemarkerdraw();
+		//Only draw the zone marker at certain scales
+		if (this._map.getZoom() < 10 ) {
+        	this.zonemarkerdraw();
+        }
     }
     catch(ex) {
         throw("Error drawing USNG zone boundaries: " + ex);
@@ -541,7 +543,6 @@ USNGZonelines.prototype.remove = function() {
 USNGZonelines.prototype.zonemarkerdraw = function() {
     function makeLabel(parent, latLong, labelText, className) {
         try {
-            
             var pixelPoint = parent.getProjection().fromLatLngToDivPixel(latLong);
 
             var d = document.createElement("div");
@@ -615,6 +616,7 @@ function Grid100klines(map, viewport, parent) {
 
     
     // zone lines are also the boundaries of 100k lines...separate instance of this class for 100k lines
+    // The problem is this also adds a zone label at inappropriate scales, so need to change the function
     this.zonelines = new USNGZonelines(this._map, this.view, parent);
     
     this.zones = this.view.geoextents();
@@ -1093,10 +1095,11 @@ Gridcell.prototype.place100kLabels = function(east,north) {
         var latitude;
         var longitude;
 
-
+		/*Removing so this label always shows
         if (this._map.getZoom() > 15) {
             return; // don't display label when zoomed way in
         }
+        */
 
         for (var i=0 ; east[i+1] ; i++ ) {
             
@@ -1110,10 +1113,12 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 longitude = (east[i] + east[i+1])/2;
                 
                 labelText = USNG.LLtoUSNG(latitude, longitude);
+                console.log("Initial label text in this 100klabels function is: "+labelText);
                 
                 // if zoomed way out use a different label
+                // MD: Use this section to adjust when zoomed way in, to remove the zone portion
 
-                if (this._map.getZoom() < 10) {
+                if (this._map.getZoom() < 10 || this._map.getZoom() > 13) {
                     if (zone > 9) {
                         labelText = labelText.substring(4,6)
                     }
@@ -1130,11 +1135,11 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                     }
                     
                 }
-
+				//original vertical alignment was "middle". Changed to "bottom" to attempt a small offset
                 this.label_100k.push(this.makeLabel(
-                    this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "middle",
+                    this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "bottom",
                     this.parent.gridStyle.semiMajorLabelClass));
-              
+              	console.log("Placing 100k label: "+labelText);
             }
         }
     }
