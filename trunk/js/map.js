@@ -204,8 +204,14 @@ function setSearchType(radiotype) {
 	searchType = radiotype;
 	if (searchType === "usng"){
 		document.getElementById('radioUSNG').checked = true;
+		//minimize the Address input in small screens. Hiding works, but not quite what we want
+		var inputAddr = document.getElementById('inputAddrTxt');
+		//inputAddr.style.visibility='hidden';
 	} else {
 		document.getElementById('radioAddress').checked = true;
+		//minimize the USNG input in small screens
+		var inputUSNG = document.getElementById('inputUSNGTxt');
+		//inputUSNG.style.visibility='hidden';
 	}
 }
 
