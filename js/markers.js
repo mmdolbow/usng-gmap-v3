@@ -23,6 +23,9 @@
  * 12. Successful launch of one type of alternative coordinates in the more.html
  * 
  * Needs:
+ * - Meet Steve's request for a draggable marker. A placeholder is in the marker creation, but need
+ *   a listener for dragend that will not only fire off a reverse geocode for the new address, but update
+ *   the USNG and Lat/Long coordinates inside the infowindow.
  * - Need better formula to set the precision for usngfunc.fromLonLat based on the zoom level. Right now it's pretty crude
  * - More alternative coordinates in the more.html
  * - An examination of the alt coordinates to better understand how to implement
@@ -47,6 +50,7 @@ google.maps.event.addListener(infowindow,"closeclick", function(){
 function createMarker(latlng,strAddress) {
 	var marker = new google.maps.Marker({
 		position: latlng,
+		//draggable:true,
 		map: map
 	});
 
@@ -78,6 +82,13 @@ function createMarker(latlng,strAddress) {
    });
 
 }
+
+function openMorePage(morelat,morelng) {
+	var output=morelat.toFixed(5)+", "+morelng.toFixed(5);
+	var childWin = window.open("more.html", "mywin", '');
+	childWin.dataFromParent = output; // dataFromParent is a variable in child.html
+}
+
 
 function removeOneMarker() {
   // global variable 'this marker' is a workaround to delete a marker from within its own info window
@@ -125,15 +136,15 @@ function lltoDMin(llobj) {
 	var NS = 'N';
 	var EW = 'E';
 	
-	var lat_deg = Math.imul(lat, 1); //Why multiply by 1? Math.imul not supported in a lot of browsers
-	//var lat_deg = lat;
+	var lat_deg = imul(lat, 1); //Why multiply by 1? Math.imul not supported in a lot of browsers
+	//var lat_deg = lat; //This isn't a valid replacement: the lat will stay in decimal minutes
 	if(lat_deg < 0) {
 		NS = 'S';
 	}
 	var lat_min = Math.abs(lat - lat_deg) * 60.0;
 	var lat_str = lat_deg.toString() + '-' + lat_min.toFixed(2) + NS;
 	
-	var lng_deg = Math.imul(lng, 1);
+	var lng_deg = imul(lng, 1);
 	//var lng_deg = lng;
 	if(lng_deg < 0) {
 		EW = 'W';
@@ -144,6 +155,16 @@ function lltoDMin(llobj) {
 	return {lat:lat_str, lng:lng_str};
 }
 
+//Polyfill imul function for IE
+function imul(a, b) {
+  var ah  = (a >>> 16) & 0xffff;
+  var al = a & 0xffff;
+  var bh  = (b >>> 16) & 0xffff;
+  var bl = b & 0xffff;
+  return ((al * bl) + (((ah * bl + al * bh) << 16) >>> 0)|0);
+}
+
+//***** Below is mostl leftover from Larry Moore's original work, which may be necessary to obtain more coordinate types.
 // html string that holds coordinates other than NSRC standards (decimal degrees, dms, etc)
 function buildCoordString2(point)  {
    var northamerica=1
@@ -283,8 +304,3 @@ function deg2dms(input) {
    return(cdeg+"-"+cmin+"-"+csec)
 }
 
-function openMorePage(morelat,morelng) {
-	var output=morelat.toFixed(5)+", "+morelng.toFixed(5);
-	var childWin = window.open("more.html", "mywin", '');
-	childWin.dataFromParent = output; // dataFromParent is a variable in child.html
-}
