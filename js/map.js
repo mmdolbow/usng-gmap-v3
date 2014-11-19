@@ -39,7 +39,7 @@
  * 5. Default search type is address.
  * 6. Radio buttons that behave and switch search types appropriately
  * 7. Form that kicks off the search depending on the type; need the radio buttons in p tags in order to work AND style properly
- * 8. Map click listener for a reverse geocode. Might need to remove based on UAT.
+ * 8. Removed calls and function for reverse geocoding, based on UAT.
  * 9. Zone etc input checkboxes appearing and disappearing depending on zoom level, using CSS
  * 10. USNG Search is translated to a lat/long and precision and the map is panned/zoomed accordingly
  * 11. Functions to toggle zone and grid lines, which call functions in gridlines.js
@@ -165,10 +165,6 @@ function initialize() {
 		} else {
 			//place a marker at the point clicked
 			createMarker(event.latLng);
-			
-			//Run a reverse Geocode when clicking the map - only desirable if we want an address showingup
-			//console.log("Map was clicked.");
-		 	//reverseGeoCode(event.latLng);
 		}
 	});
 	
@@ -218,7 +214,6 @@ function setSearchType(radiotype) {
 /* ************* UTILITY FUNCTIONS ************
  * Geocoding
  * USNG conversion
- * Reverse Geocoding Functions
  * Map click listener toggle
  */
 
@@ -268,30 +263,13 @@ function convUSNG(txt) {
 	createMarker(foundLatLng,null);
 }
 
-//do a reverse geocode on a clicked point or dragged marker
-//If we use this exact code even for map clicks, 
-//the marker will "snap" to the nearest road. Not really desirable in large rural areas.
-//so we limit the use of this function
-function reverseGeoCode (pnt){
-	//map.setCenter(pnt);
-	geocoder.geocode({'latLng': pnt}, function(results, status) {
-      if (status == google.maps.GeocoderStatus.OK) {
-        map.setCenter(results[0].geometry.location);
-        createMarker(results[0].geometry.location,results[0].formatted_address);
-        //can we / should we open up the infowindow here? Or fill the new address into the search window?
-      } else {
-        alert("Geocode was not successful for the following reason: " + status);
-      }
-    });
-}
-
 //toggle the listener on the map click event
 function mapClickListenerToggle() {
 	if (disableClickListener){
-		//console.log("Turning ON the map click listener.");
+		console.log("Turning ON the map click listener.");
 		disableClickListener=false;
 		} else {
-		//console.log("Turning OFF the map click listener.");
+		console.log("Turning OFF the map click listener.");
 		disableClickListener=true;
 	}
 }
