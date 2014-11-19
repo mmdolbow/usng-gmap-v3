@@ -24,7 +24,7 @@
  * 
  * Needs:
  * - Meet Steve's request for a draggable marker. A placeholder is in the marker creation, but need
- *   a listener for dragend that will not only fire off a reverse geocode for the new address, but update
+ *   a listener for dragend that will update
  *   the USNG and Lat/Long coordinates inside the infowindow.
  * - Need better formula to set the precision for usngfunc.fromLonLat based on the zoom level. Right now it's pretty crude
  * - More alternative coordinates in the more.html
@@ -43,6 +43,7 @@ var infowindow = new google.maps.InfoWindow(); //Global infoWindow to show coord
 var thismarker; //workaround to allow a marker to be deleted from within its own infowindow
 
 google.maps.event.addListener(infowindow,"closeclick", function(){
+	//When you close the info window, you always want to enable the click listener
 	mapClickListenerToggle();
 });
 
@@ -50,12 +51,13 @@ google.maps.event.addListener(infowindow,"closeclick", function(){
 function createMarker(latlng,strAddress) {
 	var marker = new google.maps.Marker({
 		position: latlng,
-		//draggable:true,
+		draggable:true,
 		map: map
 	});
 
 	//build the info window inside the marker listener so it can be updated with current zoom level
 	google.maps.event.addListener(marker, "click", function() {
+	  console.log("Building info window on click event.");
 	  mapClickListenerToggle();
       thismarker = marker; //set thismarker equal to this one so it can be deleted
       	var zLev = map.getZoom();
@@ -71,16 +73,21 @@ function createMarker(latlng,strAddress) {
 	   		info_str += "<input type=\"button\" onclick=\"openMorePage("+latlng.lat()+","+latlng.lng()+");\" id=\"btnMore\" name=\"moreButton\" value=\"More\"\/>";
 	   	}
 	   		
-   		
-   		//include directions
+   		//include directions and a delete me button
    		info_str += "<br\/><a href=\"https:\/\/maps.google.com\/maps?daddr="+latlng.lat()+","+latlng.lng()+"\" target=\"_blank\">Directions<\/a> ";
-   		//include a delete me button
    		info_str += '<br \/><input type=\"button\" value=\"Delete marker\" onclick=removeOneMarker()>';
 		
 		infowindow.setContent(info_str);
 		infowindow.open(map, marker);
    });
 
+	//add a dragend listener so the info window can be cleared and updated
+    google.maps.event.addListener(marker,"dragend",function(event) {
+        infowindow.close(map,marker);
+		if (disableClickListener){mapClickListenerToggle();}
+		strAddress = null;
+		latlng = event.latLng;
+    });
 }
 
 function openMorePage(morelat,morelng) {
