@@ -266,10 +266,10 @@ function convUSNG(txt) {
 //toggle the listener on the map click event
 function mapClickListenerToggle() {
 	if (disableClickListener){
-		console.log("Turning ON the map click listener.");
+		//console.log("Turning ON the map click listener.");
 		disableClickListener=false;
 		} else {
-		console.log("Turning OFF the map click listener.");
+		//console.log("Turning OFF the map click listener.");
 		disableClickListener=true;
 	}
 }
