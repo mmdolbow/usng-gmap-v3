@@ -115,20 +115,27 @@ input[type=submit] {
 	-webkit-border-radius: 5px;
 	border-radius: 5px;
     white-space: nowrap;
-    /*All of the following are overridden */
-    font-family: "Lucida Grande", "Arial", sans-serif;
     font-size: 12px;
     font-weight:bold;
     text-align: center;
-    width: 25px;     
-    
+    width: 25px;
 }
-.semiMajorGridLabel{
-	color: blue;
+.semiMajorGridLabel {
+    color: blue;
+    font-size: x-small;
+    opacity: 1;
 }
 .minorGridLabel {
-	
+    color: blue;
+    font-size: x-small;
+    opacity: 0.7;
 }
-.fineGridLabel{
-	
+.fineGridLabel {
+    color: blue;
+    font-size: x-small;
+    opacity: 0.7;
+}
+.majorGridLabel, .semiMajorGridLabel, .minorGridLabel, .fineGridLabel {
+	text-shadow: 1px 1px 0px #ffffff,-1px -1px 0px #ffffff,1px -1px 0px #ffffff,-1px 1px 0px #ffffff;
+	font-family: Arial;
 }
