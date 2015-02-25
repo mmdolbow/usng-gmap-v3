@@ -257,7 +257,7 @@ function USNGViewport(mygmap) {   // mygmap is an instance of GMap, created by c
    this.wlng = this.bounds.getSouthWest().lng();
    this.nlat = this.bounds.getNorthEast().lat();
    this.elng = this.bounds.getNorthEast().lng();
-   
+console.log("s: " + this.slat + ", w: " + this.wlng + ", n: " + this.nlat + ", e: " + this.elng);
    
    // UTM is undefined beyond 84N or 80S, so this application defines viewport at those limits
    // even though USNG can go all the way to the poles
@@ -806,8 +806,9 @@ function Gridcell(map, parent, zones,interval) {
 
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
+    var counter = 0;
+    var counter1 = 0;
     try {
-
         var utmcoords = [];
 
         var zone = MARCONI.map.getUTMZoneFromLatLong((this.slat+this.nlat)/2,(this.wlng+this.elng)/2);
@@ -815,18 +816,23 @@ Gridcell.prototype.drawOneCell = function() {
         var i,j,k,m,n,p,q;
 
         USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone);
+        //log coords
+        console.log("west lon to utm: " + utmcoords[0] + ", south lat to utm: " + utmcoords[1]);
+        // array for holding converted coordinates for logging
+        var modifiedcoords = []
 
-        
         var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
 
 
         USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone);
-
+        console.log("east lon to utm: " + utmcoords[0] + ", north lat to utm: " + utmcoords[1]);
         
         var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval) + 10 * this.interval;
-
+        modifiedcoords = [sw_utm_e, sw_utm_n, ne_utm_e, ne_utm_n];
+        console.log(modifiedcoords);
+        //console.log("utm south: " + sw_utm_e + 
         
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
@@ -895,12 +901,14 @@ Gridcell.prototype.drawOneCell = function() {
             for( m = sw_utm_e ; m <= ne_utm_e ; m += precision ) {
                 temp.push(USNG.UTMtoLL(m, i, zone));
             }
-
+           console.log("counter pass: " + counter + temp);
             gr100kCoord = [];
 
             // clipping routine...eliminate overedge lines
             // case of final point in the array is not covered
             for( p = 0  ; p < temp.length-1 ; p++ ) {
+              //test to see about skipping clip
+              //if (1) {
               if( this.checkClip(temp, p) ) {
                   gr100kCoord.push( temp[p] );
               }
@@ -924,6 +932,9 @@ Gridcell.prototype.drawOneCell = function() {
                     map: this._map}));
             }
             else if (this.interval == 100) {
+                //log
+                counter++;
+                console.log("counter pass: " + counter + gr100kCoord);
                this.gridlines.push(new google.maps.Polyline( {
                    path: gr100kCoord,
                    strokeColor: this.parent.gridStyle.fineLineColor,
@@ -957,10 +968,12 @@ Gridcell.prototype.drawOneCell = function() {
 
              temp.push(USNG.UTMtoLL(i, m, zone));
           }
-          
+          console.log("counter1 pass: " + counter1 + temp);
           // clipping routine...eliminate overedge lines
           gr100kCoord  = [];
           for (p=0 ; p < temp.length-1; p++) {
+              //test to see about skipping clip
+              //if (1) {
               if ( this.checkClip(temp,p)) {
                   gr100kCoord.push(temp[p]);
               }
@@ -983,7 +996,9 @@ Gridcell.prototype.drawOneCell = function() {
                  map: this._map}));
           }
           else if (this.interval == 100) {
-              
+              //log
+                console.log("counter1 gr100kCoord pass: " + counter1 + gr100kCoord);
+                counter1++;
               this.gridlines.push(new google.maps.Polyline( {
                  path: gr100kCoord,
                  strokeColor: this.parent.gridStyle.fineLineColor,
@@ -992,7 +1007,8 @@ Gridcell.prototype.drawOneCell = function() {
                  map: this._map}));
           }
         }
-
+        //add trace
+        console.trace()
         eastings[k] = this.elng;
 
         if (this.interval == 100000) {
@@ -1394,6 +1410,3 @@ Gridcell.prototype.checkClip = function(cp, p) {
 
    return 1;
 }
-
-
-    
