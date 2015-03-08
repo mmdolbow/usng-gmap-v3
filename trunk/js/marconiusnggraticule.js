@@ -257,7 +257,6 @@ function USNGViewport(mygmap) {   // mygmap is an instance of GMap, created by c
    this.wlng = this.bounds.getSouthWest().lng();
    this.nlat = this.bounds.getNorthEast().lat();
    this.elng = this.bounds.getNorthEast().lng();
-console.log("s: " + this.slat + ", w: " + this.wlng + ", n: " + this.nlat + ", e: " + this.elng);
    
    // UTM is undefined beyond 84N or 80S, so this application defines viewport at those limits
    // even though USNG can go all the way to the poles
@@ -806,8 +805,6 @@ function Gridcell(map, parent, zones,interval) {
 
 // instance of one utm cell
 Gridcell.prototype.drawOneCell = function() {
-    var counter = 0;
-    var counter1 = 0;
     try {
         var utmcoords = [];
 
@@ -816,24 +813,16 @@ Gridcell.prototype.drawOneCell = function() {
         var i,j,k,m,n,p,q;
 
         USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone);
-        //log coords
-        console.log("west lon to utm: " + utmcoords[0] + ", south lat to utm: " + utmcoords[1]);
-        // array for holding converted coordinates for logging
-        var modifiedcoords = []
 
         var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
 
 
         USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone);
-        console.log("east lon to utm: " + utmcoords[0] + ", north lat to utm: " + utmcoords[1]);
         
         var ne_utm_e = (Math.floor(utmcoords[0]/this.interval+1)*this.interval) + 10 * this.interval;
         var ne_utm_n = (Math.floor(utmcoords[1]/this.interval+1)*this.interval) + 10 * this.interval;
-        modifiedcoords = [sw_utm_e, sw_utm_n, ne_utm_e, ne_utm_n];
-        console.log(modifiedcoords);
-        //console.log("utm south: " + sw_utm_e + 
-        
+                
         if( sw_utm_n > ne_utm_n || sw_utm_e > ne_utm_e) {
             throw("Error, northeast of cell less than southwest");
         }
@@ -901,16 +890,18 @@ Gridcell.prototype.drawOneCell = function() {
             for( m = sw_utm_e ; m <= ne_utm_e ; m += precision ) {
                 temp.push(USNG.UTMtoLL(m, i, zone));
             }
-           console.log("counter pass: " + counter + temp);
+            
             gr100kCoord = [];
-
+           
+           //+var to store result of checkClip+
+           var check = false;
             // clipping routine...eliminate overedge lines
             // case of final point in the array is not covered
+            //+revised to return either 'false' or an array of google maps lat/lng pairs+
             for( p = 0  ; p < temp.length-1 ; p++ ) {
-              //test to see about skipping clip
-              //if (1) {
-              if( this.checkClip(temp, p) ) {
-                  gr100kCoord.push( temp[p] );
+              check = this.checkClip(temp, p);
+             if((check.constructor == Array)) {                
+                  gr100kCoord.push.apply(gr100kCoord, check);
               }
             }
 
@@ -932,9 +923,6 @@ Gridcell.prototype.drawOneCell = function() {
                     map: this._map}));
             }
             else if (this.interval == 100) {
-                //log
-                counter++;
-                console.log("counter pass: " + counter + gr100kCoord);
                this.gridlines.push(new google.maps.Polyline( {
                    path: gr100kCoord,
                    strokeColor: this.parent.gridStyle.fineLineColor,
@@ -968,14 +956,22 @@ Gridcell.prototype.drawOneCell = function() {
 
              temp.push(USNG.UTMtoLL(i, m, zone));
           }
-          console.log("counter1 pass: " + counter1 + temp);
+          
           // clipping routine...eliminate overedge lines
           gr100kCoord  = [];
+          
+          //+var to store result of checkClip+
+          var check = false;
+           
+           // clipping routine...eliminate overedge lines
+           // case of final point in the array is not covered
+           //+revised to return false or an array of google maps lat/lng pairs+
           for (p=0 ; p < temp.length-1; p++) {
-              //test to see about skipping clip
-              //if (1) {
-              if ( this.checkClip(temp,p)) {
-                  gr100kCoord.push(temp[p]);
+              //+test to see about skipping clip+
+              //+if (1) {+
+           check = this.checkClip(temp, p);
+              if((check.constructor == Array)) {                
+                  gr100kCoord.push.apply(gr100kCoord, check);
               }
           }
 
@@ -995,10 +991,7 @@ Gridcell.prototype.drawOneCell = function() {
                  strokeOpacity: this.parent.gridStyle.minorLineOpacity,
                  map: this._map}));
           }
-          else if (this.interval == 100) {
-              //log
-                console.log("counter1 gr100kCoord pass: " + counter1 + gr100kCoord);
-                counter1++;
+          else if (this.interval == 100) {              
               this.gridlines.push(new google.maps.Polyline( {
                  path: gr100kCoord,
                  strokeColor: this.parent.gridStyle.fineLineColor,
@@ -1007,8 +1000,7 @@ Gridcell.prototype.drawOneCell = function() {
                  map: this._map}));
           }
         }
-        //add trace
-        console.trace()
+
         eastings[k] = this.elng;
 
         if (this.interval == 100000) {
@@ -1129,7 +1121,7 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 longitude = (east[i] + east[i+1])/2;
                 
                 labelText = USNG.LLtoUSNG(latitude, longitude);
-                console.log("Initial label text in this 100klabels function is: "+labelText);
+                //console.log("Initial label text in this 100klabels function is: "+labelText);
                 
                 // if zoomed way out use a different label
                 // MD: Use this section to adjust when zoomed way in, to remove the zone portion
@@ -1155,7 +1147,7 @@ Gridcell.prototype.place100kLabels = function(east,north) {
                 this.label_100k.push(this.makeLabel(
                     this.parent, new google.maps.LatLng(latitude,longitude), labelText, "center", "bottom",
                     this.parent.gridStyle.semiMajorLabelClass));
-              	console.log("Placing 100k label: "+labelText);
+              	//console.log("Placing 100k label: "+labelText);
             }
         }
     }
@@ -1324,12 +1316,28 @@ Gridcell.prototype.place100mLabels = function(east,north) {
    }
 }  // end place100mLabels()
 
+/**++Revised to ensure display of grid lines (see https://code.google.com/p/usng-gmap-v3/issues/detail?id=4). In non-trivial case, now adds both endpoints of a grid line crossing the viewport and having endpoints falling outside of viewport to the array used for rendering polylines ++**/
 Gridcell.prototype.checkClip = function(cp, p) {
     ///  implementation of Cohen-Sutherland clipping algorithm to clip grid lines at boundarie
     //        of utm zones and the viewport edges
-
+ 
     var that=this;  // so private funcs can see this via that
 
+    var temp;
+    var pair = []; //+empty array for coordinate pair+
+    var t;
+    var u1=cp[p].lng();
+    var v1=cp[p].lat();
+    var u2=cp[p+1].lng();
+    var v2=cp[p+1].lat();
+    
+    //+flag if nontrivial case+
+    var nontrivial = false;
+    
+    //+flag if coordinates have been swapped for clipping+
+    var swap = false;
+    
+    //+if point falls outside of viewport, determine if point lies above or below viewport, and if point lies to the left or right of viewport+    
     function outcode(lat,lng) {
         var code = 0;
         if (lat < that.slat) {
@@ -1345,7 +1353,44 @@ Gridcell.prototype.checkClip = function(cp, p) {
         }
         return code;
     }
-    function inside(lat,lng) {
+    
+    //+bitwise code returned after determining where first point lies relative to viewport+
+    var code1 = outcode(v1, u1);
+        
+    //+bitwise code returned after determining where second point lies relative to viewport+
+    var code2 = outcode(v2, u2);
+    
+    //+determine if coordinate pairs are trivial accept or trivial reject case, or non-trivial case+
+    //+if non-trivial case, clip segment+
+    if (nontrivialcheck(v1,u1,v2,u2)) {
+        clip(v1,u1,v2,u2);
+    }
+        
+    function nontrivialcheck(v1,u1,v2,u2){
+        //+if both points fall outside of the viewport on the same side (e.g. above, below, to left, or to right)+
+        if ((code1 & code2) !== 0) {   // line segment outside window...don't draw it
+          return null;
+        }
+        
+        //+if both points fall within viewport (bitwise OR) and,+
+        //+if trivial case add first endpoint to array for rendering grid line;+
+        //+if non-trivial case add both endpoints to array for rendering grid line+
+        if ((code1 | code2) === 0) {   // line segment completely inside window...draw it
+           pair[0] = new google.maps.LatLng(v1,u1);
+           if (nontrivial) {
+            pair[1] = new google.maps.LatLng(v2,u2); 
+           }
+           nontrivial = false;
+           return nontrivial;
+        }
+        
+        //+otherwise, non-trivial case, clip+
+        nontrivial = true;
+        return nontrivial;
+    }
+        
+    //+if endpoint falls within viewport, return true+
+    function inside(lat,lng) {	
         if (lat < that.slat || lat > that.nlat) {
             return 0;
         }
@@ -1353,60 +1398,76 @@ Gridcell.prototype.checkClip = function(cp, p) {
             return 0;
         }
         return 1;
+    }        
+            
+    function clip(v1,u1,v2,u2) {
+        //+check coordinates of first endpoint to determine if point falls within viewport+
+        if (inside(v1,u1)) {  // coordinates must be altered
+          // swap coordinates
+          temp = u1;
+          u1 = u2;
+          u2 = temp;
+
+          temp = v1;
+          v1 = v2;
+          v2 = temp;
+
+          temp = code1;
+          code1 = code2;
+          code2 = temp;
+          
+          //+flag that swap of coordinates occured and should be swapped again+
+          swap = true;
+       }
+       //+now clip endpoint to boundary of viewport based on point's position relative to the viewport.+
+       //generalize code param
+       if (code1 & 8) { // clip along northern edge of polygon
+          t = (that.nlat - v1)/(v2-v1);
+          u1 += t*(u2-u1);
+          v1 = that.nlat;
+       }
+       else if (code1 & 4) { // clip along southern edge
+          t = (that.slat - v1)/(v2-v1);
+          u1 += t*(u2-u1);
+          v1 = that.slat;
+       }
+       else if (code1 & 1) { // clip along west edge
+          t = (that.wlng - u1)/(u2-u1);
+          v1 += t*(v2-v1);
+          u1 = that.wlng;
+       }
+       else if (code1 & 2) { // clip along east edge
+          t = (that.elng - u1)/(u2-u1);
+          v1 += t*(v2-v1);
+          u1 = that.elng;
+       }
+       if (swap){
+       //+swap coords again+
+       temp = u1;
+       u1 = u2;
+       u2 = temp;
+
+       temp = v1;
+       v1 = v2;
+       v2 = temp;
+       
+       //+reset flag+
+       swap = false;
+       }
+       
+       //+get respective endpoints' bitwise codes after clip+
+       code1 = outcode(v1, u1);
+       code2 = outcode(v2, u2);
+       
+       //+now check endpoint to determine if it is now on the viewport boundary+
+       //+if endpoint is on viewport boundary, but opposite endpoint is outside of viewport, will need to clip again+
+       if (nontrivialcheck(v1,u1,v2,u2)) {
+        clip(v1,u1,v2,u2);
+       }
     }
-
-    var temp;
-    var t;
-    var u1=cp[p].lng();
-    var v1=cp[p].lat();
-    var u2=cp[p+1].lng();
-    var v2=cp[p+1].lat();
-    var code1 = outcode(v1, u1);
-    var code2 = outcode(v2, u2);
-    if ((code1 & code2) != 0) {   // line segment outside window...don't draw it
-      return null;
-    }
-    if ((code1 | code2) == 0) {   // line segment completely inside window...draw it
-      return 1;
-    }
-    if (inside(v1,u1)) {  // coordinates must be altered
-      // swap coordinates
-      temp = u1;
-      u1 = u2;
-      u2 = temp;
-
-      temp = v1;
-      v1 = v2;
-      v2 = temp;
-
-      temp = code1;
-      code1 = code2;
-      code2 = temp;
-   }
-   if (code1 & 8) { // clip along northern edge of polygon
-      t = (this.nlat - v1)/(v2-v1)
-      u1 += t*(u2-u1)
-      v1 = this.nlat
-      cp[p] = new google.maps.LatLng(v1,u1)
-   }
-   else if (code1 & 4) { // clip along southern edge
-      t = (this.slat - v1)/(v2-v1);
-      u1 += t*(u2-u1);
-      v1 = this.slat;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-   else if (code1 & 1) { // clip along west edge
-      t = (this.wlng - u1)/(u2-u1);
-      v1 += t*(v2-v1);
-      u1 = this.wlng;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-   else if (code1 & 2) { // clip along east edge
-      t = (this.elng - u1)/(u2-u1);
-      v1 += t*(v2-v1);
-      u1 = this.elng;
-      cp[p] = new google.maps.LatLng(v1,u1);
-   }
-
-   return 1;
-}
+  if (pair.length == 0){
+  return false;
+  }else{
+  return pair;
+  }
+ }
