@@ -176,7 +176,8 @@ function initialize() {
 	
 	if (debug) {
 		google.maps.event.addListener(map, 'zoom_changed', function(event){ 
-			document.getElementById("debugZlev").innerHTML="Zlev: "+map.getZoom();
+			//document.getElementById("debugZlev").innerHTML="Zlev: "+map.getZoom();
+			console.log("Current zoom level is: "+map.getZoom());
 		});
 	}
 	
