@@ -811,12 +811,11 @@ Gridcell.prototype.drawOneCell = function() {
         var zone = MARCONI.map.getUTMZoneFromLatLong((this.slat+this.nlat)/2,(this.wlng+this.elng)/2);
         
         var i,j,k,m,n,p,q;
-
+           
         USNG.LLtoUTM(this.slat,this.wlng,utmcoords,zone);
-
+        
         var sw_utm_e = (Math.floor(utmcoords[0]/this.interval)*this.interval)-this.interval;
         var sw_utm_n = (Math.floor(utmcoords[1]/this.interval)*this.interval)-this.interval;
-
 
         USNG.LLtoUTM(this.nlat,this.elng,utmcoords,zone);
         
@@ -953,7 +952,6 @@ Gridcell.prototype.drawOneCell = function() {
           temp=[];
 
           for (m=sw_utm_n,n=0; m<=ne_utm_n; m+=precision,n++) {
-
              temp.push(USNG.UTMtoLL(i, m, zone));
           }
           
@@ -1000,7 +998,7 @@ Gridcell.prototype.drawOneCell = function() {
                  map: this._map}));
           }
         }
-
+        
         eastings[k] = this.elng;
 
         if (this.interval == 100000) {
@@ -1010,7 +1008,6 @@ Gridcell.prototype.drawOneCell = function() {
            this.place1kLabels(eastings,northings);
         }
         else if (this.interval == 100) {
-           
            this.place100mLabels(eastings,northings);
         }
      }
@@ -1248,23 +1245,37 @@ Gridcell.prototype.place1kLabels = function(east,north) {
 
 Gridcell.prototype.place100mLabels = function(east,north) {
     try {
-
+        
         // only label lines when zoomed way in
         if( this._map.getZoom() < 14) {
             return;
         }
-
+        //++both arrays must have two or more elements++
         if( east.length < 2 || north.length < 2 ) {
             return;
         }
-
+        
         var skipFactor = (this._map.getZoom() > 15 ? 1 : 2);
+        
+        //++get lengths of respective lat and long arrays++
+        var northlen = north.length;
+        var eastlen = east.length;
         
         // place "x-axis" labels
         for (var i = 1; east[i+1] ; i+= 1) {
+            var count = 1;
             for (var j=1; j< 2; j++) {
-                
-                var gridRef  = USNG.LLtoUSNG((north[j]+north[j+1])/2, east[i]);
+                //++will always be at least two elements (code above on line 1254 checks for that)++
+                //++array is zero-based, so the first array element is skipped.++
+                //++for special case where array only has two elements,++
+                //++lat value for north[j+1] is undefined and 'NaN' gets passed to LLtoUSNG here, resulting in error++
+                //++added a test for special case of two element array and hard-code distance halfway between two northings++
+                if (northlen==2){
+                    var gridRefLat = ((north[0]+north[1])/2);
+                }else{
+                    var gridRefLat = (north[j]+north[j+1])/2;
+                }
+                var gridRef = USNG.LLtoUSNG(gridRefLat, east[i]);
                 var parts = gridRef.split(" ");
 
                 var x = parseFloat(parts[2].substr(0,3));
@@ -1277,8 +1288,9 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                 if( !(x % skipFactor) ) {
                     
                     var insigDigits = (skipFactor == 1 || !(x%10) ? "<sup>00</sup>" : "");
-
-                    this.label_100m.push(this.makeLabel(this.parent, new google.maps.LatLng((north[j]+north[j+1])/2,(east[i])),
+                    //++passing in gridRefLat variable for label++
+                    this.label_100m.push(this.makeLabel(this.parent, new google.maps.LatLng(gridRefLat,(east[i])),
+                    //((north[j]+north[j+1])/2,(east[i])),
                         MARCONI.stdlib.fixedFormatNumber(x, 1, 0, true) + insigDigits, "left", "top",
                         this.parent.gridStyle.fineLabelClass));
                 }
@@ -1288,9 +1300,18 @@ Gridcell.prototype.place100mLabels = function(east,north) {
         // place "y-axis" labels, don't worry about skip factor since there's plenty of room comparatively
         for (i=1; i<2; i++) {
             for (j=1; north[j+1]; j++) {
-                gridRef  = USNG.LLtoUSNG(north[j],(east[i]+east[i+1])/2,4);
+                //++can get a long value of 'NaN' here too, if zoomed in close enough, and viewport is sized right++
+                //++again, with special case where easting array only has two elements,++
+                //++lon value for east[i+1] is undefined,'NaN' gets passed to LLtoUSNG, and results in error++
+                //++add test for special case of two element array and hard-code distance halfway between two eastings++
+                if (eastlen==2){
+                    var gridRefLon = ((east[0]+east[1])/2);
+                }else{
+                    var gridRefLon = (east[i]+east[i+1])/2;
+                }
+                gridRef  = USNG.LLtoUSNG(north[j],gridRefLon,4);
                 parts = gridRef.split(" ");
-
+                
                 var y = parseFloat(parts[3].substr(0,3));
                 z     = parseFloat(parts[3].substr(3,2));
 
@@ -1299,14 +1320,13 @@ Gridcell.prototype.place100mLabels = function(east,north) {
                     y++;
                     z=0;
                 }
-
-               
+                
                 this.label_100m.push(this.makeLabel(
                     this.parent,
-                    new google.maps.LatLng((north[j]),(east[i]+east[i+1])/2),
+                    //++use gridRefLon value for creating label++                    
+                    new google.maps.LatLng((north[j]),gridRefLon),
                     MARCONI.stdlib.fixedFormatNumber(y,1,0,true) + "<sup>00</sup>", "center", "top",
                     this.parent.gridStyle.fineLabelClass));
-
             }
         }
    }
