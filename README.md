@@ -2,4 +2,4 @@ The integration of the U.S. National Grid (USNG) coordinates in online web mappi
 
 To relieve this difficulty, Larry Moore developed a web map based on the Google Maps API that incorporated USNG coordinates (http://dhost.info/usngweb/). This project attempts to update that code to version 3 of the Google Maps API, incorporating Javascript libraries from Jim Klassen (https://github.com/klassenjs/usng_tools) and Xavier Irias (http://www.ersquared.org/). 
 
-Contributors include Mike Dolbow and Sean Gutknecht.
+Contributors include Mike Dolbow and Sean Gutknecht. A demonstration page can be used at https://rawgit.com/mmdolbow/usng-gmap-v3/master/index.html
