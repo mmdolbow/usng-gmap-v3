@@ -4,4 +4,6 @@ To relieve this difficulty, Larry Moore developed a web map based on the Google 
 
 If you want to deploy this code on your own site, you'll need to obtain an API key from Google and replace my key with yours on line 11 of index.html. More information about the Google Maps Javascript API and API keys is available here: https://developers.google.com/maps/documentation/javascript/?hl=en_US
 
+Due to the Google Maps billing changes coming in summer of 2018, the demonstration site is likely to stop working. Details about the changes can be found here: https://developers.google.com/maps/billing/important-updates
+
 Contributors include Mike Dolbow and Sean Gutknecht. A demonstration page can be used at http://mmdolbow.github.io/usng-gmap-v3/
