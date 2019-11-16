@@ -4,6 +4,6 @@ To relieve this difficulty, Larry Moore developed a web map based on the Google 
 
 If you want to deploy this code on your own site, you'll need to obtain an API key from Google and replace my key with yours on line 11 of index.html. More information about the Google Maps Javascript API and API keys is available here: https://developers.google.com/maps/documentation/javascript/?hl=en_US
 
-Due to the Google Maps billing changes coming in summer of 2018, the demonstration site is likely to stop working. Details about the changes can be found here: https://developers.google.com/maps/billing/important-updates
+Due to the Google Maps billing changes coming in summer of 2018, the demonstration site is highly likely to stop working or malfunctio. Details about the changes can be found here: https://developers.google.com/maps/billing/important-updates
 
-Contributors include Mike Dolbow and Sean Gutknecht. A demonstration page can be used at http://mmdolbow.github.io/usng-gmap-v3/
+Contributors include Mike Dolbow and Sean Gutknecht. A demonstration page can be used at http://mmdolbow.github.io/usng-gmap-v3/ This page is ONLY intended as a demonstration. Individuals and organizations should NOT use the demo page in production or mission-critical situations. Organizations may want to consider hosting this code on their own or hiring a consultant to build something for them. I recommend https://mappingsupport.com/ to find someone familiar with building similar functionality.
